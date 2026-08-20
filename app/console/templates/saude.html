@@ -1,12 +1,15 @@
 {% extends "base.html" %}
 {% block titulo %}Saude - ZapTips Console{% endblock %}
 {% block conteudo %}
-  <h1>Saude do pipeline</h1>
+  <h1>Saúde do pipeline</h1>
 
   {% if not estado.existe %}
-    <p class="bloqueio">O pipeline ainda nao rodou hoje.</p>
+    <p class="bloqueio">O pipeline ainda não rodou hoje.</p>
   {% else %}
-    <p>Run de hoje: <strong>{{ estado.status }}</strong> (etapa atual: {{ estado.etapa_atual or "-" }})</p>
+    <p>
+      Run de hoje: <span class="badge badge-{{ estado.status }}">{{ estado.status }}</span>
+      &nbsp;·&nbsp; etapa atual: <code>{{ estado.etapa_atual or "-" }}</code>
+    </p>
     <table>
       <thead>
         <tr><th>Etapa</th><th>Status</th><th>OK</th><th>Erro</th></tr>
@@ -15,48 +18,71 @@
         {% for etapa in estado.etapas %}
         <tr>
           <td>{{ etapa.nome }}</td>
-          <td>{{ etapa.status }}</td>
-          <td>{{ etapa.itens_ok }}</td>
-          <td>{{ etapa.itens_erro }}</td>
+          <td><span class="badge badge-{{ etapa.status }}">{{ etapa.status }}</span></td>
+          <td class="num">{{ etapa.itens_ok }}</td>
+          <td class="num">{{ etapa.itens_erro }}</td>
         </tr>
         {% endfor %}
       </tbody>
     </table>
   {% endif %}
 
-  <h2>Fontes</h2>
-  <ul>
+  <h2>Painel geral</h2>
+  <div class="grade-paineis">
+    <div class="painel">
+      <div class="rotulo">Palpites órfãos</div>
+      <div class="valor{% if orfaos_aguardando_partida > 0 %} warn{% endif %}">{{ orfaos_aguardando_partida }}</div>
+      <div class="nota">aguardando fixture entrar na janela</div>
+    </div>
+    <div class="painel">
+      <div class="rotulo">Sem liquidação</div>
+      <div class="valor{% if encerradas_sem_liquidacao > 0 %} warn{% endif %}">{{ encerradas_sem_liquidacao }}</div>
+      <div class="nota">partidas encerradas há mais de 12h</div>
+    </div>
+    <div class="painel">
+      <div class="rotulo">Revisão manual</div>
+      <div class="valor{% if revisao_manual_pendente > 0 %} warn{% endif %}">{{ revisao_manual_pendente }}</div>
+      <div class="nota"><code>scripts/liquidacao.py listar</code></div>
+    </div>
+    <div class="painel">
+      <div class="rotulo">Mensagens expiradas</div>
+      <div class="valor{% if mensagens_expiradas > 0 %} danger{% endif %}">{{ mensagens_expiradas }}</div>
+      <div class="nota">não enviadas a tempo</div>
+    </div>
+  </div>
+
+  <h2>Fontes de coleta</h2>
+  <ul class="lista-simples">
     {% for fonte, dias in dias_fora_por_fonte.items() %}
-      <li>{{ fonte }}: {% if dias == 0 %}ok{% else %}fora ha {{ dias }} dia(s){% endif %}</li>
+      <li>
+        <span>{{ fonte }}</span>
+        {% if dias == 0 %}
+          <span class="badge badge-ok">ok</span>
+        {% else %}
+          <span class="badge badge-falhou">fora há {{ dias }}d</span>
+        {% endif %}
+      </li>
     {% endfor %}
   </ul>
 
-  <h2>Cota OddsPapi (mes atual)</h2>
-  <p>
-    {{ quota.chamadas }} chamada(s)
-    {% if quota.limite %}de {{ quota.limite }} ({{ quota.restante }} restante(s)){% endif %}
-    - projecao fim do mes: {{ quota.projecao_fim_mes }}
+  <h2>Cota OddsPapi (mês atual)</h2>
+  <p class="odd">
+    {{ quota.chamadas }}{% if quota.limite %} / {{ quota.limite }} &nbsp;<small>({{ quota.restante }} restante(s), projeção fim do mês: {{ quota.projecao_fim_mes }})</small>{% else %} &nbsp;<small>(sem limite configurado)</small>{% endif %}
   </p>
 
-  <h2>Palpites orfaos aguardando partida</h2>
-  <p>{{ orfaos_aguardando_partida }}</p>
-
-  <h2>Partidas encerradas ha mais de 12h sem liquidacao</h2>
-  <p>{{ encerradas_sem_liquidacao }}</p>
-
-  <h2>Picks pendentes de revisao manual</h2>
-  <p>{{ revisao_manual_pendente }} <em>(liquidacao automatica ficou ambigua - ver <code>scripts/liquidacao.py listar</code>/<code>marcar</code>)</em></p>
-
-  <h2>Mensagens expiradas sem envio</h2>
-  <p>{{ mensagens_expiradas }}</p>
-
-  <h2>Assinaturas vencendo nos proximos 5 dias</h2>
+  <h2>Assinaturas vencendo nos próximos 5 dias</h2>
   {% if not vencendo %}
     <p>Nenhuma.</p>
   {% else %}
-    <ul>
+    <ul class="lista-simples">
       {% for item in vencendo %}
-        <li>{{ item.nome or item.telefone_e164 }} - vence {{ item.fim }} (em {{ item.dias_restantes }}d){% if item.ja_renovado %} (ja renovado){% endif %}</li>
+        <li>
+          <span>{{ item.nome or item.telefone_e164 }}</span>
+          <span>
+            vence {{ item.fim }} <small>(em {{ item.dias_restantes }}d)</small>
+            {% if item.ja_renovado %}<span class="badge badge-ok">renovado</span>{% endif %}
+          </span>
+        </li>
       {% endfor %}
     </ul>
   {% endif %}

@@ -141,7 +141,11 @@ fase — detalhe completo em [`docs/HISTORICO.md`](docs/HISTORICO.md):
   slate, template de mensagem.
 - **Fase 5 (a–d)** — Orquestrador de pipeline com resume, CLI de
   assinantes/opt-in/opt-out (LGPD), console FastAPI (`/saude`,
-  `/curadoria`, `/envio` com modo manual e modo sessão guiada).
+  `/curadoria`, `/envio` com modo manual e modo sessão guiada). Design
+  visual (2026-08-20): tema "console de operações" dark, tokens CSS em
+  `app/console/static/console.css`, badges de status, dashboard em
+  cards — todos os 9 templates redesenhados sem tocar em lógica/forms;
+  `sessao.js` (Fase 5d-D) continua funcionando, seletores preservados.
 - **Fase 6 (a–e)** — Motor de liquidação por mercado (1x2, ambas marcam,
   over/under, handicap, escanteios, cartões), simulação de banca
   (`master_ledger`/`bets`), métricas por usuário, performance por fonte,

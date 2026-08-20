@@ -3,23 +3,29 @@
    (mesmo achado da revisao holistica pos-Fase 2, upsert_source). Espera
    `msg` (dict de _mensagem_para_exibicao) e `modo` ('manual'|'sessao')
    no contexto - StrictUndefined faz qualquer um faltando estourar 500,
-   entao os dois chamadores tem que definir os dois antes do include. #}
-<div>
+   entao os dois chamadores tem que definir os dois antes do include.
+
+   sessao.js depende dos seletores abaixo permanecerem assim:
+   form[action*='/enviada'] button[type=submit] (desabilitado durante a
+   contagem), o resto e so estilo. #}
+<div class="card-mensagem">
   {% if msg.kickoff_local %}
-  <p>{{ msg.rotulo }} - kickoff {{ msg.kickoff_local.strftime("%d/%m %H:%M") }}</p>
+  <p class="rotulo-msg">{{ msg.rotulo }} — kickoff {{ msg.kickoff_local.strftime("%d/%m %H:%M") }}</p>
   {% else %}
-  <p>{{ msg.rotulo }}</p>
+  <p class="rotulo-msg">{{ msg.rotulo }}</p>
   {% endif %}
   <pre>{{ msg.corpo_renderizado }}</pre>
-  {% if msg.excede_limite %}<p><strong>Aviso: texto passa de 1500 caracteres.</strong></p>{% endif %}
-  <a href="{{ msg.link_whatsapp }}" target="_blank">Abrir no WhatsApp</a>
-  <form method="post" action="/envio/{{ msg.message_id }}/enviada" style="display:inline">
-    <input type="hidden" name="modo" value="{{ modo }}">
-    <button type="submit" autofocus>Marcar como enviada</button>
-  </form>
-  <form method="post" action="/envio/{{ msg.message_id }}/pular" style="display:inline">
-    <input type="hidden" name="modo" value="{{ modo }}">
-    <input type="text" name="motivo" placeholder="motivo" required>
-    <button type="submit">Pular</button>
-  </form>
+  {% if msg.excede_limite %}<p class="aviso">Texto passa de 1500 caracteres.</p>{% endif %}
+  <div class="acoes-mensagem">
+    <a href="{{ msg.link_whatsapp }}" target="_blank" class="btn-whatsapp">Abrir no WhatsApp</a>
+    <form method="post" action="/envio/{{ msg.message_id }}/enviada">
+      <input type="hidden" name="modo" value="{{ modo }}">
+      <button type="submit" class="primario" autofocus>Marcar como enviada</button>
+    </form>
+    <form method="post" action="/envio/{{ msg.message_id }}/pular">
+      <input type="hidden" name="modo" value="{{ modo }}">
+      <input type="text" name="motivo" placeholder="motivo" required>
+      <button type="submit" class="perigo">Pular</button>
+    </form>
+  </div>
 </div>

@@ -51,7 +51,7 @@ def test_saude_responde_200():
     resposta = client.get("/saude")
 
     assert resposta.status_code == 200
-    assert "Saude do pipeline" in resposta.text
+    assert "pipeline" in resposta.text
 
 
 def test_curadoria_bloqueada_quando_nao_ha_run_hoje():

@@ -2,26 +2,35 @@
 {% block titulo %}Envio - ZapTips Console{% endblock %}
 {% block conteudo %}
   <h1>Envio</h1>
-  <p><a href="/envio/sessao">Modo sess&atilde;o &rarr;</a></p>
+  <p><a href="/envio/sessao">Modo sessão →</a></p>
 
-  <p>
-    Prontas: {{ contadores.prontas }} |
-    Enviadas hoje: {{ contadores.enviadas_hoje }} |
-    Expirando nas proximas 2h: {{ contadores.expirando_2h }}
-  </p>
+  <div class="grade-paineis">
+    <div class="painel">
+      <div class="rotulo">Prontas</div>
+      <div class="valor{% if contadores.prontas > 0 %} warn{% endif %}">{{ contadores.prontas }}</div>
+    </div>
+    <div class="painel">
+      <div class="rotulo">Enviadas hoje</div>
+      <div class="valor ok">{{ contadores.enviadas_hoje }}</div>
+    </div>
+    <div class="painel">
+      <div class="rotulo">Expirando (2h)</div>
+      <div class="valor{% if contadores.expirando_2h > 0 %} danger{% endif %}">{{ contadores.expirando_2h }}</div>
+    </div>
+  </div>
 
   {% if not grupos %}
-    <p>Nenhuma mensagem pronta pra enviar.</p>
+    <p class="estado-vazio">Nenhuma mensagem pronta pra enviar.</p>
   {% endif %}
 
   {% for grupo in grupos %}
-    <div class="aviso">
-      <h2>{{ grupo.nome or grupo.telefone_e164 }} ({{ grupo.telefone_e164 }})</h2>
+    <div class="grupo-assinante">
+      <h2>{{ grupo.nome or grupo.telefone_e164 }} <small>({{ grupo.telefone_e164 }})</small></h2>
 
       {% if grupo.mensagens | length > 1 %}
         <p>
-          <a href="{{ grupo.link_whatsapp_grupo }}" target="_blank">Abrir tudo no WhatsApp (uma conversa)</a>
-          {% if grupo.excede_limite_grupo %}<strong>- texto combinado passa de 1500 caracteres</strong>{% endif %}
+          <a href="{{ grupo.link_whatsapp_grupo }}" target="_blank" class="btn-whatsapp">Abrir tudo no WhatsApp (uma conversa)</a>
+          {% if grupo.excede_limite_grupo %}<br><small>texto combinado passa de 1500 caracteres</small>{% endif %}
         </p>
       {% endif %}
 

@@ -2,6 +2,7 @@
 <html lang="pt-BR">
 <head>
   <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% block titulo %}ZapTips Console{% endblock %}</title>
   <link rel="stylesheet" href="/static/console.css">
 </head>
@@ -12,11 +13,16 @@
     nao confiavel. NUNCA usar `| safe` em campo vindo dessas tabelas
     neste diretorio de templates.
   -->
-  <nav>
-    <a href="/saude">Saude</a>
-    <a href="/curadoria">Curadoria</a>
-    <a href="/envio">Envio</a>
-  </nav>
+  <header class="topo">
+    <div class="topo-conteudo">
+      <span class="marca"><span class="ponto"></span>ZapTips</span>
+      <nav>
+        <a href="/saude" class="{{ 'ativo' if request.url.path == '/saude' else '' }}">Saúde</a>
+        <a href="/curadoria" class="{{ 'ativo' if request.url.path == '/curadoria' else '' }}">Curadoria</a>
+        <a href="/envio" class="{{ 'ativo' if request.url.path.startswith('/envio') else '' }}">Envio</a>
+      </nav>
+    </div>
+  </header>
   <main>
     {% block conteudo %}{% endblock %}
   </main>

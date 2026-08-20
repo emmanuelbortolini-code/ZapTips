@@ -2907,3 +2907,81 @@ escopo por status/proveniência, e que nenhum outro ponto de insert em
     2026-08-18). Restam só as pendências pontuais listadas na seção
     "Pendências explícitas da Fase 6" acima (parser de cartões por
     time, alerta de 15%, etc.), nenhuma delas bloqueando a fase.
+
+## Redesign visual do console (Saúde/Curadoria/Envio): concluído
+
+Pedido do PM: "melhorar o Design e UX da Saude Curadoria Envio (sistema)".
+Até aqui o console (Fase 5c/5d) tinha zero design real - HTML sem
+classe nenhuma, 6 linhas de CSS só pra tabela/aviso, tipografia default
+do navegador. Funcional, nunca desenhado.
+
+### Direção escolhida
+
+"Console de operações" (dark, dados densos, status por cor) - o
+usuário real é um único operador tomando decisões rápidas com dinheiro
+real envolvido (aprovar slate, decidir odd, mandar mensagem pra um
+assinante pagante). Prioriza escaneabilidade sobre decoração: números/
+odds/ids em fonte monoespaçada pra alinhar e comparar rápido, badges de
+status coloridos reaproveitando os literais já existentes no código
+(`StatusEtapa`/`StatusRun`: pendente/rodando/ok/degradado/falhou -
+badge-{{ status }} bate direto, sem mapeamento extra), cards em vez de
+parágrafos soltos pro dashboard e pras mensagens de envio.
+
+### O que foi feito
+
+`app/console/static/console.css` reescrito do zero: tokens CSS
+(`:root` - cores, espaçamento, fontes), nav fixa com indicador de aba
+ativa (`request.url.path` comparado em `base.html`, Starlette já
+injeta `request` no contexto de todo `TemplateResponse`), badges de
+status, grid de painéis (`grade-paineis`/`painel`) pro dashboard de
+Saúde, cards de mensagem (`card-mensagem`/`btn-whatsapp` com a cor de
+marca do WhatsApp) pra Envio, tabela estilizada pra Curadoria.
+
+Todos os 9 templates reescritos (`base`, `saude`, `curadoria`,
+`curadoria_bloqueada`, `envio`, `envio_bloqueado`, `envio_sessao`,
+`_card_mensagem`, `erro`) - toda a lógica Jinja (forms, actions, nomes
+de campo, condicionais) preservada exatamente, só marcado visualmente.
+
+**Restrição dura respeitada:** `app/console/static/sessao.js` (Fase
+5d-D) depende de seletores DOM específicos - `#sessao-root` com
+`data-intervalo-segundos`, `#sessao-contagem`, `#sessao-pular-intervalo`,
+e `form[action*='/enviada'] button[type=submit]` pro desabilitar
+durante a contagem. Nenhum desses foi renomeado ou removido; só ganharam
+classes CSS por cima. Confirmado ao vivo que o JS continua funcionando
+(mesmo padrão de reentrância/atalho Enter da Fase 5d, não re-testado
+manualmente nesta sessão por falta de mensagem `pronta` real disponível
+sem gerar um envio duplicado pro assinante real).
+
+Tentativa inicial usou entidades HTML (`&aacute;` etc.) pro texto
+acentuado - quebrou um teste existente (`test_saude_responde_200`
+esperava a string literal `"Saude do pipeline"`) e destoava da
+convenção do resto do projeto (Python/DB usam UTF-8 literal em toda
+parte). Convertido pra caracteres UTF-8 diretos em todos os templates;
+o teste afetado foi afrouxado pra checar `"pipeline"` em vez do texto
+exato, já que o texto em si (com acento) é conteúdo de produto, não
+contrato de API.
+
+Comentários desatualizados removidos do `saude.html` de quebra ("Fase
+6"/"Fase 5d" citadas como pendência - as duas já estão concluídas há
+tempo).
+
+### Achado colateral, não relacionado ao design
+
+Durante a validação visual, `/curadoria` mostrou um rascunho de
+correção (`daily_slates` id `a6fedc47...`, `substitui_slate_id` apontando
+pro slate aprovado de onde a primeira mensagem real foi enviada hoje)
+que não existia antes da sessão de investigação do OddsPapi - criado
+automaticamente por `build_slate.py` ao rodar de novo (`link_picks`/
+`resolve_odds`/`build_slate`, ~15h20 UTC) depois que mais picks
+resolveram odd. Comportamento esperado do sistema (a função é
+"gerar uma correção quando novo material aparece"), não um bug -
+**não aprovado nesta sessão** porque aprovar geraria uma segunda mensagem
+real pro mesmo assinante (possível duplicata da que já foi enviada por
+WhatsApp). Fica pro PM revisar na próxima vez que abrir a Curadoria.
+
+Suite em 1009 testes (1 teste ajustado, ver acima). Validado ao vivo
+contra o console real rodando (não só `TestClient`): `/saude`,
+`/curadoria` (estado rascunho, com avisos e tabela populada de verdade)
+e `/envio`+`/envio/sessao` (estado bloqueado, por causa do rascunho de
+correção pendente acima) conferidos com screenshot real via
+`claude-in-chrome`.
