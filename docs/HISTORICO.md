@@ -2396,9 +2396,8 @@ externa que falta instalar nesta máquina, não um bug.
 
 ### Pendências explícitas da Fase 7
 
-1. **Página pública de performance** — não construída, decisão
-   explícita desta sessão. Exige decidir onde/como hospedar antes de
-   qualquer código (contradiz "sem servidor" como está hoje).
+1. ~~Página pública de performance — não construída~~ — construída em
+   sessão posterior (ver "Página pública de performance" abaixo).
 2. `pg_dump` não está instalado na máquina do PM — `scripts/backup.py`
    funciona (falha graciosamente), mas precisa da ferramenta cliente do
    Postgres presente pra gerar um backup de verdade.
@@ -2410,6 +2409,57 @@ externa que falta instalar nesta máquina, não um bug.
    (`resumo_semanal`, segundas 05h BRT), não o de fechamento diário.
 5. Agendador nunca rodou de fato por um dia inteiro em produção — só
    testado localmente (import, registro dos 6 jobs, start/stop limpo).
+
+## Página pública de performance (Fase 7, fechamento da pendência): concluída
+
+Reconstruído por leitura de código nesta sessão (2026-08-20) — os
+arquivos já existiam no projeto, criados numa sessão anterior sem
+entrada correspondente neste documento; o texto abaixo descreve o que o
+código faz e por quê, a partir da leitura direta (docstrings e
+implementação), não de um relato original do PM.
+
+`app/relatorio_publico.py` (DB-shape: lê `master_ledger` inteiro — Fase
+6b — e simula com a banca/stake **default** do produto, nunca a config
+de um assinante individual, "página usa o extrato mestre completo, não
+expõe dado individual") + `app/settlement/metricas_publicas.py`
+(reaproveita `app.settlement.metricas.calcular_metricas`, Fase 6c, sem
+duplicar fórmula — só decide os 3 períodos: `"7 dias"`, `"30 dias"`,
+`"Desde o início"`, e monta a curva de banca ponto a ponto) +
+`app/pagina_publica.py` (dois artefatos puros: HTML de arquivo único
+com CSS/SVG inline, sem JS/CDN/chamada de rede, e um resumo em texto
+pronto pra colar no WhatsApp) + `scripts/gerar_pagina_publica.py`
+(CLI/`executar()` que escreve `public/index.html` e `public/resumo.txt`,
+sempre sobrescritos no mesmo caminho — URL estável pra hospedar sem
+reconfigurar).
+
+**Decisão que resolve a tensão "página pública" vs. "sem servidor"
+(ver Fase 7 acima):** o script só **gera o arquivo estático localmente**
+— publicar (upload pra Netlify Drop, GitHub Pages, etc.) continua sendo
+um passo manual do operador, nunca automatizado pelo projeto. Isso não
+contradiz mais a decisão de arquitetura, porque nenhum servidor novo
+passa a rodar — é geração de artefato, igual a `scripts/backup.py`.
+
+Regras de apresentação obrigatórias no código (não configuráveis, mesmo
+padrão de `app/messaging.py`): "simulada" acompanha toda menção à banca;
+frase fixa de metodologia (banca inicial, stake, **piso publicado**,
+nunca a odd real obtida pelo assinante); nenhuma linguagem de
+projeção/previsão; todo número vem com o período que cobre;
+`rodape_legal` obrigatório (18+, jogo responsável); `curva_banca`/
+`DadosPublicos` só carregam números agregados — nenhum `user_id`/
+telefone/nome chega nesta camada.
+
+Wired em `scripts/agendador.py::_fechamento_diario` — roda por último,
+depois de `build_master_ledger`/`build_bets`/`gerar_fechamentos`
+(23h BRT), "regerada ao fim da liquidação diária" (spec), mas depende só
+de `master_ledger`, já fresco pelo primeiro passo do job.
+
+`public/` adicionado ao `.gitignore` (artefato gerado, mesmo tratamento
+de `backups/`) e o próprio diretório ainda não existe em disco nesta
+máquina (nunca rodado). Suíte do projeto em **985 testes** (era 958 ao
+fim da Fase 6e) — a diferença de 27 testes é inteiramente destes 4
+arquivos novos (`test_relatorio_publico.py`,
+`test_settlement_metricas_publicas.py`, `test_pagina_publica.py`,
+`test_gerar_pagina_publica.py`).
 
 ## Checklist manual do modo sessão (pendência da Fase 5d): concluído, com achado real corrigido
 

@@ -5,6 +5,7 @@ __pycache__/
 .env
 export_*.json
 backups/
+public/
 .coverage
 console.log
 .serena/

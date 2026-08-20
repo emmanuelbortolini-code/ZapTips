@@ -56,6 +56,7 @@ com MSYS2/coreutils ou WSL têm).
 | Extrato mestre / apostas por usuário | `uv run python -m scripts.build_master_ledger` / `scripts.build_bets` |
 | Relatórios (usuário, fontes, diário) | `uv run python -m scripts.relatorio usuario\|fontes\|diario ...` |
 | Mensagens de fechamento / resumo semanal | `uv run python -m scripts.gerar_fechamentos` / `scripts.gerar_resumo_semanal` |
+| Página pública de performance (gera `public/index.html`+`resumo.txt`) | `uv run python -m scripts.gerar_pagina_publica` |
 | Agendador (processo único, produção) | `uv run python -m scripts.agendador` |
 | Backup do Postgres | `uv run python -m scripts.backup` |
 | Health check (mesmos dados da aba /saude) | `uv run python -m scripts.health` |
@@ -132,12 +133,15 @@ fase — detalhe completo em [`docs/HISTORICO.md`](docs/HISTORICO.md):
   (`master_ledger`/`bets`), métricas por usuário, performance por fonte,
   mensagens de fechamento de palpite e resumo semanal.
 - **Fase 7** — Agendador único (`scripts/agendador.py`), health check,
-  relatório diário, backup do Postgres. Página pública de performance
-  **adiada** (contradiz "sem servidor" — exige decisão de hospedagem).
+  relatório diário, backup do Postgres, e página pública de performance
+  (`scripts/gerar_pagina_publica.py`, HTML+texto estáticos gerados em
+  `public/`, regenerados no fechamento diário — publicar/hospedar
+  continua manual, o script só gera o arquivo).
 
 ## Pendências conhecidas
 
-1. Página pública de performance (Fase 7) — sem decisão de hospedagem.
+1. Publicar/hospedar `public/index.html` (Netlify Drop, GitHub Pages etc.)
+   continua manual — o script só gera o artefato local, nunca sobe sozinho.
 2. `pg_dump` não instalado na máquina do PM — `scripts/backup.py` falha
    graciosamente até isso ser resolvido.
 3. Padrão `coluna::date = %s` em `app/console/queries.py` (`/saude`,
