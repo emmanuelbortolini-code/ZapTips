@@ -189,14 +189,19 @@ fase — detalhe completo em [`docs/HISTORICO.md`](docs/HISTORICO.md):
 6. `casas.aliases` vazio (sem urgência — resolução de `casa_id` já é 100%
    sem alias; `app/espn_odds.py` contorna isso normalizando nome, não
    dependendo de alias).
-7. Contagem de picks pendentes de revisão manual (`nao_liquidavel`) não
-   aparece no console `/saude` — só via `scripts/liquidacao.py listar`.
+7. ~~Contagem de revisão manual não aparece em `/saude`~~ — resolvido em
+   2026-08-20 (`revisao_manual_pendente`, painel no dashboard e no CLI
+   `health`).
 8. `scripts/relatorio.py` (usuário/fontes) só tem CLI — nenhuma rota do
    console mostra essas métricas ainda.
 9. Uso auxiliar do `/settlements` do OddsPapi (conferência amostral de
    liquidação) — não implementado.
 10. Agendador nunca rodou um dia inteiro em produção — só validado
     localmente (start/stop, registro dos jobs).
+11. Achado real (2026-08-20): `app.matcher` recusa "Grêmio Novorizontino
+    SP" (nome da OddsPapi) contra "Novorizontino" (nosso banco) — score
+    100 mas ambíguo, vira `revisao_manual`. Impede odd automática pra
+    esse time específico até alguém popular um alias manualmente.
 11. Volume real ainda baixo pra validar conflito de picks/limite diário do
     slate com dado de produção de verdade.
 12. ~~`app/oddspapi.py::_parse_fixture` só reconhece mercado 1x2 sob uma
