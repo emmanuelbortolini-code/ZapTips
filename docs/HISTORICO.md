@@ -3442,10 +3442,31 @@ GitHub Actions:
    GitHub). Depois da troca, `pipeline-diario.yml` rodou verde de ponta a
    ponta.
 
-**Pendência real, não fechada ainda:** só `pipeline-diario.yml` foi
-validado com execução real até aqui. Os outros 4 workflows
-(`coleta-liquidacao`, `fechamento-diario`, `backup-diario`,
-`resumo-semanal`) compartilham o mesmo secret `DATABASE_URL` (agora
-corrigido pro pooler), então devem funcionar também, mas isso ainda não
-foi confirmado disparando cada um manualmente. Vale o PM fazer esse
-disparo antes de confiar 100% no cron de cada um.
+### Terceiro bug real: `pg_dump` desatualizado no runner
+
+Validando `backup-diario.yml` (`workflow_dispatch`), a execução falhou
+com `Backup falhou: pg_dump_falhou` — sem detalhe nenhum no log, porque
+`scripts/backup.py::main()` só imprimia o motivo genérico, nunca o
+`stderr` real do `pg_dump` (gap real, não só falta de sorte: o mesmo
+código já capturava `resultado.stderr` em `ResultadoEtapa.detalhe`, só
+não estava sendo impresso). Corrigido: `main()` agora imprime
+`detalhe["stderr"]` também na falha.
+
+Causa raiz mais provável (mesma classe de problema já resolvida
+localmente pelo PM, ver pendência 2 antiga no `CLAUDE.md`): o
+`apt-get install postgresql-client` do workflow original instalava a
+versão default do repositório Ubuntu do runner, que fica atrás da
+versão real do servidor (Supabase roda PG17) — `pg_dump` exige cliente
+igual ou mais novo que o servidor. Corrigido adicionando o repositório
+oficial do PostgreSQL (`apt.postgresql.org`) ao workflow e instalando
+`postgresql-client-17` explicitamente, em vez do pacote genérico.
+Disparado de novo depois da correção: **rodou verde**.
+
+### Pendência real, não fechada ainda
+
+`pipeline-diario.yml` e `backup-diario.yml` já validados com execução
+real. `coleta-liquidacao.yml`, `fechamento-diario.yml` e
+`resumo-semanal.yml` ainda não foram disparados manualmente pra
+confirmar — `fechamento-diario.yml` em particular usa `gerar_pagina_publica`,
+que não depende de `pg_dump`, então o bug de versão não deve afetá-lo,
+mas nenhum dos 3 foi testado de fato ainda.

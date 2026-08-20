@@ -214,9 +214,14 @@ fase — detalhe completo em [`docs/HISTORICO.md`](docs/HISTORICO.md):
     conexão direta do Supabase resolvendo IPv6 (sem rota nos runners do
     GitHub Actions) — corrigido trocando o secret pela connection string
     do **pooler** (`*.pooler.supabase.com`, ver nota em `.env.example`).
-    `pipeline-diario.yml` já validado rodando verde; os outros 4 workflows
-    ainda não foram disparados manualmente pra confirmar (pendência real,
-    compartilham o mesmo secret já corrigido, mas sem confirmação ainda).
+    Terceiro bug achado validando `backup-diario.yml`: `pg_dump` do
+    `apt-get install postgresql-client` genérico ficava atrás da versão
+    do servidor (Supabase = PG17) — corrigido instalando
+    `postgresql-client-17` via repositório oficial do PostgreSQL no
+    workflow. `pipeline-diario.yml` e `backup-diario.yml` já validados
+    rodando verde; `coleta-liquidacao.yml`, `fechamento-diario.yml` e
+    `resumo-semanal.yml` ainda não foram disparados manualmente pra
+    confirmar (pendência real).
 11. ~~Matcher recusava "Grêmio Novorizontino SP"~~ — resolvido em
     2026-08-20: `app.matcher.match_team_name` agora prioriza um match
     exato de UM time sobre empate com fuzzy de OUTRO time (antes os dois
