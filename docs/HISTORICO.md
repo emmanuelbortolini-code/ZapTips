@@ -3462,11 +3462,12 @@ oficial do PostgreSQL (`apt.postgresql.org`) ao workflow e instalando
 `postgresql-client-17` explicitamente, em vez do pacote genérico.
 Disparado de novo depois da correção: **rodou verde**.
 
-### Pendência real, não fechada ainda
+### Todos os 5 workflows validados com execução real
 
-`pipeline-diario.yml` e `backup-diario.yml` já validados com execução
-real. `coleta-liquidacao.yml`, `fechamento-diario.yml` e
-`resumo-semanal.yml` ainda não foram disparados manualmente pra
-confirmar — `fechamento-diario.yml` em particular usa `gerar_pagina_publica`,
-que não depende de `pg_dump`, então o bug de versão não deve afetá-lo,
-mas nenhum dos 3 foi testado de fato ainda.
+O PM disparou `coleta-liquidacao.yml`, `fechamento-diario.yml` e
+`resumo-semanal.yml` manualmente depois dos dois fixes acima — os três
+rodaram verde. Com isso, os 5 workflows (`pipeline-diario`,
+`coleta-liquidacao`, `fechamento-diario`, `backup-diario`,
+`resumo-semanal`) estão confirmados funcionando de ponta a ponta contra
+o Postgres real via GitHub Actions, encerrando de vez a pendência do
+scheduler depender do PC do PM ficar ligado.

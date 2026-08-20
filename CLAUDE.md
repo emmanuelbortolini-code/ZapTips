@@ -218,10 +218,9 @@ fase — detalhe completo em [`docs/HISTORICO.md`](docs/HISTORICO.md):
     `apt-get install postgresql-client` genérico ficava atrás da versão
     do servidor (Supabase = PG17) — corrigido instalando
     `postgresql-client-17` via repositório oficial do PostgreSQL no
-    workflow. `pipeline-diario.yml` e `backup-diario.yml` já validados
-    rodando verde; `coleta-liquidacao.yml`, `fechamento-diario.yml` e
-    `resumo-semanal.yml` ainda não foram disparados manualmente pra
-    confirmar (pendência real).
+    workflow. Os 5 workflows (`pipeline-diario`, `coleta-liquidacao`,
+    `fechamento-diario`, `backup-diario`, `resumo-semanal`) já foram
+    disparados manualmente e rodaram verde — pendência encerrada.
 11. ~~Matcher recusava "Grêmio Novorizontino SP"~~ — resolvido em
     2026-08-20: `app.matcher.match_team_name` agora prioriza um match
     exato de UM time sobre empate com fuzzy de OUTRO time (antes os dois
