@@ -3,6 +3,7 @@ from datetime import date, datetime, timezone
 import pytest
 from starlette.testclient import TestClient
 
+import app.console.rotas_saude as rotas_saude
 from app.console.deps import estado_run_hoje, get_conexao, get_cursor
 from app.console.main import create_app
 from app.console.queries import EstadoEtapaDetalhado, EstadoRun
@@ -13,6 +14,7 @@ from tests._fakes import FakeConnection, FakeCursor
 def _limpar_overrides():
     yield
     app.dependency_overrides.clear()
+    rotas_saude._etapas_em_andamento.clear()
 
 
 app = create_app()
@@ -52,6 +54,43 @@ def test_saude_responde_200():
 
     assert resposta.status_code == 200
     assert "pipeline" in resposta.text
+
+
+def test_post_sincronizar_etapa_valida_agenda_e_redireciona(monkeypatch):
+    chamadas = []
+    monkeypatch.setattr("app.console.rotas_saude._disparar_sincronizacao", lambda etapa: chamadas.append(etapa))
+
+    resposta = client.post("/saude/sincronizar/odds", headers=_ORIGEM)
+
+    assert resposta.status_code == 303
+    assert resposta.headers["location"] == "/saude"
+    assert chamadas == ["odds"]
+
+
+def test_post_sincronizar_etapa_invalida_404(monkeypatch):
+    chamadas = []
+    monkeypatch.setattr("app.console.rotas_saude._disparar_sincronizacao", lambda etapa: chamadas.append(etapa))
+
+    resposta = client.post("/saude/sincronizar/nao-existe", headers=_ORIGEM)
+
+    assert resposta.status_code == 404
+    assert chamadas == []  # nunca agenda a task pra uma etapa que nao existe
+
+
+def test_post_sincronizar_etapa_ja_em_andamento_devolve_409(monkeypatch):
+    # Achado do code-reviewer: dois cliques rapidos (ou um F5 antes do
+    # primeiro POST voltar) nao podem agendar duas execucoes da MESMA
+    # etapa em paralelo - dobraria o consumo da cota paga da OddsPapi
+    # silenciosamente. O segundo POST tem que ser recusado antes de
+    # sequer agendar o BackgroundTasks.
+    chamadas = []
+    monkeypatch.setattr("app.console.rotas_saude._disparar_sincronizacao", lambda etapa: chamadas.append(etapa))
+    rotas_saude._etapas_em_andamento.add("odds")
+
+    resposta = client.post("/saude/sincronizar/odds", headers=_ORIGEM)
+
+    assert resposta.status_code == 409
+    assert chamadas == []  # segundo clique nunca chega a agendar a task
 
 
 def test_curadoria_bloqueada_quando_nao_ha_run_hoje():

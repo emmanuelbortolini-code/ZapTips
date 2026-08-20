@@ -2985,3 +2985,89 @@ contra o console real rodando (não só `TestClient`): `/saude`,
 e `/envio`+`/envio/sessao` (estado bloqueado, por causa do rascunho de
 correção pendente acima) conferidos com screenshot real via
 `claude-in-chrome`.
+
+## Botão "sincronizar" por etapa em /saude: concluído
+
+Pedido do PM logo depois do redesign visual: "inclua botoes para
+sincronizar todas as ETAPAS". A Fase 5c (D1) tinha decidido
+explicitamente **não** ter um botão "rodar agora" no console, citando
+que um job de minutos dentro de uma requisição HTTP não combina com a
+arquitetura - mas essa decisão foi sobre o **pipeline inteiro** (6
+etapas em sequência). Uma etapa isolada é bem mais curta, e o problema
+de "não travar a requisição" tem solução direta com
+`fastapi.BackgroundTasks` (roda depois da resposta ser enviada) - não
+precisou reabrir a decisão original, só reconhecer que ela não se
+aplicava igual a este escopo menor.
+
+### O que foi construído
+
+`app/console/rotas_saude.py`: `POST /saude/sincronizar/{etapa}`,
+protegida por `Depends(checar_origin)` (mesma guarda de toda rota de
+escrita do console desde a Fase 5c), valida `etapa` contra
+`app.pipeline.ETAPAS`, agenda `_disparar_sincronizacao` via
+`BackgroundTasks.add_task` e redireciona (303) de volta pra `/saude` na
+hora. `_disparar_sincronizacao` chama `scripts.run_pipeline.executar(
+forcadas=frozenset({etapa}))` - a mesma função já usada por
+`scripts/agendador.py` e pelo `--forcar-etapa` da CLI, então o
+sequenciamento (`app/pipeline.py::avancar_etapas`) é 100% reaproveitado,
+nada duplicado. `saude.html` ganhou um botão "sincronizar" por linha da
+tabela de etapas (desabilitado via HTML quando `status == 'rodando'`) e
+um botão "Rodar pipeline agora" no estado "pipeline ainda não rodou
+hoje" (postando pra `/saude/sincronizar/fixtures` - forçar só a
+primeira etapa já basta, porque `deve_pular`/`avancar_etapas` roda
+qualquer etapa que não esteja `'ok'`, então as etapas seguintes, todas
+`pendente`, rodam em sequência sem precisar ser forçadas uma por uma).
+
+**Primeira vez que `app/` importa de `scripts/` no projeto inteiro** -
+toda a convenção até aqui era a direção oposta (`scripts/` é a camada
+de CLI/orquestração que importa `app/`, nunca o contrário). Decisão
+registrada como exceção deliberada e documentada no código: `app/
+console` tem, pra este botão específico, o mesmo papel operacional que
+`scripts/agendador.py` já tem (disparar `run_pipeline.executar()` fora
+do fluxo normal de CLI) - não é a lógica de domínio vazando pra
+`scripts/`, é uma segunda forma de disparar a mesma orquestração que já
+existia.
+
+### Achado real do `code-reviewer`: 1 HIGH, corrigido
+
+Cliques rápidos duplicados no mesmo botão (ou um F5 antes do primeiro
+POST voltar) agendavam **dois** `BackgroundTasks` chamando
+`run_pipeline.executar()` pra mesma etapa, em paralelo, no mesmo
+processo Python. Isso quebra silenciosamente uma garantia que o projeto
+já documentava em dois lugares (`app/pipeline_runs.py`,
+`scripts/build_slate.py::criar_ou_reaproveitar_slate`): "a arquitetura
+já exclui execução concorrente" - verdade enquanto o único disparador
+era o agendador (uma etapa por vez, nunca duas instâncias da mesma
+etapa ao mesmo tempo), mas deixa de valer no instante em que um clique
+humano pode disparar a mesma etapa de novo antes da primeira rodada
+terminar. Consequência concreta: `scripts/collect_odds.py` incrementa
+`api_quota.chamadas` a cada chamada real à API - dois cliques dobrariam
+silenciosamente o consumo da cota paga (250/mês) pro mesmo dado, sem
+nenhum erro visível pro operador. O `status == 'rodando'` que desabilita
+o botão no HTML não fecha essa brecha sozinho, porque só é escrito
+quando `avancar_etapas` de fato CHEGA na etapa - etapas anteriores ainda
+pendentes rodam antes dela, então a janela de "já cliquei mas ainda não
+apareceu 'rodando'" é real.
+
+Corrigido com um set em memória (`_etapas_em_andamento`, protegido por
+`threading.Lock`) marcado no instante em que a requisição é aceita -
+antes mesmo do `BackgroundTasks` começar, fechando a janela que o
+`status` do banco não fecha. Um segundo POST pra uma etapa já em
+andamento devolve `409`, sem agendar nada. `finally` em
+`_disparar_sincronizacao` garante que a etapa sai do set mesmo se
+`run_pipeline.executar()` levantar. Teste de regressão adicionado
+(`test_post_sincronizar_etapa_ja_em_andamento_devolve_409`).
+
+Resto do review veio limpo: a violação de camada é pragmática e
+razoável (mesmo papel do agendador, já documentada); `BackgroundTasks`
+rodando no mesmo processo do Uvicorn tem o mesmo risco de
+kill-no-meio-da-execução que o agendador já tinha, não é um risco novo;
+`checar_origin` cobre a rota igual a todas as outras de escrita.
+
+Suíte em **1012 testes** (1009 + 3 novos: sincronizar válido, etapa
+inválida 404, etapa já em andamento 409). Validado ao vivo contra o
+console real: clique em "sincronizar" na etapa `matching` (rápida, sem
+rede externa - escolhida de propósito pra não gastar cota de API só
+testando o botão) devolveu 303 na hora, o log confirmou
+`Run ... retomado` rodando em background, e a página seguinte já
+mostrava o resultado atualizado.

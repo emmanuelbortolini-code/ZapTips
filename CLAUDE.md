@@ -146,6 +146,9 @@ fase — detalhe completo em [`docs/HISTORICO.md`](docs/HISTORICO.md):
   `app/console/static/console.css`, badges de status, dashboard em
   cards — todos os 9 templates redesenhados sem tocar em lógica/forms;
   `sessao.js` (Fase 5d-D) continua funcionando, seletores preservados.
+  `/saude` ganhou botão "sincronizar" por etapa (`POST /saude/
+  sincronizar/{etapa}`, roda em background via `BackgroundTasks`, com
+  trava em memória contra clique duplo — detalhe em `docs/HISTORICO.md`).
 - **Fase 6 (a–e)** — Motor de liquidação por mercado (1x2, ambas marcam,
   over/under, handicap, escanteios, cartões), simulação de banca
   (`master_ledger`/`bets`), métricas por usuário, performance por fonte,

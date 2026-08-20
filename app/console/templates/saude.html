@@ -5,6 +5,9 @@
 
   {% if not estado.existe %}
     <p class="bloqueio">O pipeline ainda não rodou hoje.</p>
+    <form method="post" action="/saude/sincronizar/fixtures">
+      <button type="submit" class="primario">Rodar pipeline agora</button>
+    </form>
   {% else %}
     <p>
       Run de hoje: <span class="badge badge-{{ estado.status }}">{{ estado.status }}</span>
@@ -12,7 +15,7 @@
     </p>
     <table>
       <thead>
-        <tr><th>Etapa</th><th>Status</th><th>OK</th><th>Erro</th></tr>
+        <tr><th>Etapa</th><th>Status</th><th>OK</th><th>Erro</th><th>Sincronizar</th></tr>
       </thead>
       <tbody>
         {% for etapa in estado.etapas %}
@@ -21,6 +24,13 @@
           <td><span class="badge badge-{{ etapa.status }}">{{ etapa.status }}</span></td>
           <td class="num">{{ etapa.itens_ok }}</td>
           <td class="num">{{ etapa.itens_erro }}</td>
+          <td>
+            <form method="post" action="/saude/sincronizar/{{ etapa.nome }}">
+              <button type="submit" {% if etapa.status == 'rodando' %}disabled{% endif %}>
+                {{ 'rodando…' if etapa.status == 'rodando' else 'sincronizar' }}
+              </button>
+            </form>
+          </td>
         </tr>
         {% endfor %}
       </tbody>
