@@ -109,6 +109,18 @@ scheduler via APScheduler em processo único (`scripts/agendador.py`).
   caminho de escrita único. Rodar quando o PM pedir ("extrai os picks
   pendentes"), não automaticamente.
 
+## Marco: primeira mensagem real enviada via WhatsApp
+
+Em 2026-08-20, o ciclo completo do produto rodou de ponta a ponta pela
+primeira vez com dado real: pipeline → extração assistida → vínculo →
+odd (palpite manual com odd verificada ao vivo contra o mercado,
+mercados automáticos ainda sem dado pra fixtures futuras) → curadoria →
+aprovação → geração de mensagem → fila de envio → **enviada de verdade
+pelo WhatsApp** pro assinante real. Confirmado no Postgres
+(`messages.status = 'enviada'`). Detalhe completo, incluindo o que
+não funcionou automaticamente e por quê, em
+[`docs/HISTORICO.md`](docs/HISTORICO.md).
+
 ## Estado do projeto (fases)
 
 Fase 0 (fundação/schema) até Fase 7 (operação/scheduler) estão com o
@@ -165,6 +177,12 @@ fase — detalhe completo em [`docs/HISTORICO.md`](docs/HISTORICO.md):
     localmente (start/stop, registro dos jobs).
 11. Volume real ainda baixo pra validar conflito de picks/limite diário do
     slate com dado de produção de verdade.
+12. `app/oddspapi.py::_parse_fixture` só reconhece mercado 1x2 sob a
+    chave `"101"` — achado real (2026-08-20): pelo menos duas fixtures
+    de Série B com `hasOdds: true` na bet365 usavam IDs de mercado
+    dinâmicos, não essa chave fixa, e ficaram sem odd (nível 2) mesmo
+    tendo dado real disponível. Não corrigido ainda — precisa de mais
+    amostra real antes de generalizar o parser.
 
 Para o "porquê" de qualquer decisão acima, ou o relato completo de uma
 investigação (sondas, bugs de revisão de código, achados por fase), ver

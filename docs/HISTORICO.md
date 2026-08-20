@@ -2595,6 +2595,83 @@ nível 1/2 e de uma fixture cujo bloco de odds da ESPN traga casa
 licenciada, cenário raro no volume atual (ver achado #2 acima); vale
 revisitar quando/​se isso ocorrer de verdade em produção.
 
+## Primeira mensagem real enviada via WhatsApp (2026-08-20): marco de produto
+
+Pedido do PM: "rode o agendador e faça o sistema de controle geral
+subir" seguido de "vamos continuar melhorando o sistema até conseguir
+enviar a primeira mensagem via WhatsApp". Console (`scripts.console`) e
+agendador (`scripts.agendador`) subidos em background, os dois
+confirmados vivos (console respondendo 200 em `/saude`; agendador com
+os 6 jobs registrados, fuso `America/Sao_Paulo`).
+
+### Estado real encontrado, não fabricado
+
+`scripts.health` mostrou pipeline do dia ainda não rodado (agendador só
+dispara `pipeline_diario` às 6h, já passada) — rodado manualmente.
+Resultado real: `extracao` degradada (sem crédito de API, esperado),
+`slate` com 0 candidatos — os únicos 10 picks com odd resolvida no
+banco eram de fixtures já passadas (08/08 a 16/08), sobra de sessões
+anteriores; nenhum pick novo tinha odd ainda.
+
+Processo de extração assistida (ver Fase 3/decisão permanente) rodado
+sobre os 40 `raw_picks` pendentes: 52 picks inseridos, `link_picks`
+vinculou 16 a fixtures reais, `resolve_odds` (agora com nível 1-3, ver
+entrada acima) resolveu 9 — mas todos os 9 eram, de novo, fixtures já
+passadas (o gate de status `vinculado`/`sem_odd` do script não filtra
+por tempo). Dos 4 picks realmente novos ligados a fixtures futuras
+(próximas 48h), nenhum tinha odd citada pela fonte nem cobertura no
+OddsPapi/ESPN pro mercado deles (`ambas_marcam`/`over_under`, fora do
+escopo dos níveis 2/3) — `sem_odd`, corretamente, não um bug.
+
+**Investigação ao vivo antes de qualquer atalho:** consultada a API da
+OddsPapi diretamente (não só via `collect_odds.py`) para as duas
+partidas de Série B de hoje à noite (Athletic x CRB, Novorizontino x
+América-MG) - `hasOdds: true` no payload bruto, mas o mercado 1x2 sob a
+chave `"101"` que `app.oddspapi._parse_fixture` espera não estava
+presente pra nenhuma das duas (bet365 usa IDs de mercado dinâmicos
+nessas duas fixtures específicas, não a chave fixa) — `resolve_odds.py`
+corretamente não achou nada, não é bug do parser (achado registrado,
+não corrigido - fora de escopo desta sessão).
+
+### Decisão: usar o palpite manual do console com odd real verificada
+
+Dado que nenhum caminho automático (níveis 1/2/3) tinha dado real
+disponível pra uma fixture das próximas 24h, usei `claude-in-chrome`
+pra consultar odds públicas reais (OddsPortal, aba "Classic Bookies")
+pra Athletic Club x CRB (Série B, kickoff hoje 22h30 UTC) — várias casas
+regulamentadas convergindo em ~2.40 pra vitória do Athletic Club.
+Cadastrado via `/curadoria` → "Adicionar palpite manual" (mercado 1x2,
+seleção "Athletic vence", odd 2.40) — real, verificada ao vivo contra
+mercado, não inventada. Slate aprovado pelo console; `gerar_mensagens`
+rodou dentro da mesma transação (Fase 5d) e gerou a mensagem real pro
+único assinante ativo (o próprio operador).
+
+### Falso alarme investigado e descartado
+
+Ao abrir o link "Abrir no WhatsApp", a URL exibida pela ferramenta de
+automação de navegador mostrava o emoji 🔞 do rodapé legal como um
+caractere de erro (`%EF%BF%BD`, replacement character). Investigado
+antes de "corrigir" qualquer coisa: `curl` direto no HTML servido por
+`/envio` mostrou a codificação **correta** (`%F0%9F%94%9E`, UTF-8
+válido) tanto no link individual quanto no combinado
+("abrir tudo") — confirmado também que `corpo_renderizado` já estava
+correto no Postgres e que `urllib.parse.quote` codifica o emoji
+corretamente de forma isolada. A garantia real: **nenhum bug**, o
+caractere estranho era só como a ferramenta de automação exibiu a URL
+pra mim, não o que de fato foi pro WhatsApp - confirmado por leitura
+direta do dado em cada camada antes de mexer em qualquer código.
+
+### Resultado
+
+Mensagem enviada de verdade pelo PM via WhatsApp Web, confirmado por
+ele e validado no Postgres: `messages.status = 'enviada'`,
+`enviada_em` real (2026-08-20 15:21 UTC), tanto a mensagem de palpite
+quanto o resumo semanal que já estava na fila. **Primeiro envio real de
+ponta a ponta do produto** - pipeline → extração → vínculo → odd
+(manual, dado real verificado) → curadoria → aprovação → geração de
+mensagem → fila de envio → WhatsApp de verdade. Console e agendador
+seguem rodando em background nesta máquina.
+
 ## Checklist manual do modo sessão (pendência da Fase 5d): concluído, com achado real corrigido
 
 Pendência explícita desde a Fase 5d ("o checklist interativo de
