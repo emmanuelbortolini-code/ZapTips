@@ -10,6 +10,7 @@ from app.console.queries import (
     mensagens_expiradas,
     orfaos_aguardando_partida,
     quota_mes,
+    revisao_manual_pendente,
 )
 from tests._fakes import FakeCursor
 
@@ -120,3 +121,11 @@ def test_mensagens_expiradas_conta_status_expirada():
 
     assert mensagens_expiradas(cur) == 0
     assert "'expirada'" in cur.queries[0][0]
+
+
+def test_revisao_manual_pendente_filtra_nao_liquidavel_nao_revisado():
+    cur = FakeCursor(fetchone_results=[(4,)])
+
+    assert revisao_manual_pendente(cur) == 4
+    sql = cur.queries[0][0]
+    assert "'nao_liquidavel'" in sql and "revisado_por_humano = false" in sql

@@ -156,8 +156,16 @@ fase — detalhe completo em [`docs/HISTORICO.md`](docs/HISTORICO.md):
 
 1. Publicar/hospedar `public/index.html` (Netlify Drop, GitHub Pages etc.)
    continua manual — o script só gera o artefato local, nunca sobe sozinho.
-2. `pg_dump` não instalado na máquina do PM — `scripts/backup.py` falha
-   graciosamente até isso ser resolvido.
+2. ~~`pg_dump` não instalado~~ — resolvido em 2026-08-20: PostgreSQL 17
+   client tools instalado via `winget` (`PostgreSQL.PostgreSQL.17`), bin
+   adicionado ao PATH do usuário. O instalador do winget sobe o serviço
+   completo do Postgres junto (não só o cliente) — parar/desabilitar o
+   serviço `postgresql-x64-17` exige admin, que esta sessão não tem;
+   segue rodando (porta padrão 5432, não usado pelo projeto — o banco
+   real é o Supabase). `scripts/backup.py` validado contra o Postgres
+   real, dump gravado em `backups/`. Ação pendente pro PM: desativar o
+   serviço manualmente se quiser liberar a porta/RAM (Serviços do
+   Windows → `postgresql-x64-17` → parar + desabilitar).
 3. Detecção de conflito em `app/slate.py` só normaliza seleção pro mercado
    1x2; `over_under`/`ambas_marcam`/`handicap` comparam texto bruto.
 4. Parser de "cartões, condição por time" — só o marcador existe, falta

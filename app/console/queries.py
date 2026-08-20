@@ -132,6 +132,17 @@ def mensagens_expiradas(cur: psycopg.Cursor) -> int:
     return cur.fetchone()[0]
 
 
+def revisao_manual_pendente(cur: psycopg.Cursor) -> int:
+    # Mesmo filtro de app.settlement.persistencia.listar_pendentes_revisao
+    # (Fase 6a), so que contando em vez de trazer as linhas - pendencia
+    # explicita desde a Fase 6a: essa contagem so era visivel via
+    # `scripts/liquidacao.py listar`, nunca no dashboard.
+    cur.execute(
+        "select count(*) from pick_results where resultado = 'nao_liquidavel' and revisado_por_humano = false"
+    )
+    return cur.fetchone()[0]
+
+
 def buscar_status_slate(cur: psycopg.Cursor, slate_id: str) -> str | None:
     cur.execute("select status from daily_slates where id = %s::uuid", (slate_id,))
     row = cur.fetchone()
@@ -506,6 +517,7 @@ def carregar_dashboard_saude(cur: psycopg.Cursor, hoje: date, estado: "EstadoRun
         "orfaos_aguardando_partida": orfaos_aguardando_partida(cur),
         "encerradas_sem_liquidacao": encerradas_sem_liquidacao(cur),
         "mensagens_expiradas": mensagens_expiradas(cur),
+        "revisao_manual_pendente": revisao_manual_pendente(cur),
         "vencendo": listar_vencendo(cur, hoje=hoje),
     }
 

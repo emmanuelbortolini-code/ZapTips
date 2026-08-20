@@ -42,10 +42,13 @@
   <p>{{ orfaos_aguardando_partida }}</p>
 
   <h2>Partidas encerradas ha mais de 12h sem liquidacao</h2>
-  <p>{{ encerradas_sem_liquidacao }} <em>(liquidacao entra na Fase 6 - este numero e o backlog que ela vai encontrar, nao uma falha de hoje)</em></p>
+  <p>{{ encerradas_sem_liquidacao }}</p>
+
+  <h2>Picks pendentes de revisao manual</h2>
+  <p>{{ revisao_manual_pendente }} <em>(liquidacao automatica ficou ambigua - ver <code>scripts/liquidacao.py listar</code>/<code>marcar</code>)</em></p>
 
   <h2>Mensagens expiradas sem envio</h2>
-  <p>{{ mensagens_expiradas }} <em>(geracao de mensagens entra na Fase 5d - messages ainda esta vazia)</em></p>
+  <p>{{ mensagens_expiradas }}</p>
 
   <h2>Assinaturas vencendo nos proximos 5 dias</h2>
   {% if not vencendo %}

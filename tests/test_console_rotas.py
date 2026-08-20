@@ -44,7 +44,7 @@ def test_raiz_redireciona_para_saude():
 
 def test_saude_responde_200():
     app.dependency_overrides[get_cursor] = lambda: FakeCursor(
-        fetchone_results=[(0, None), (0,), (0,), (0,)], fetchall_results=[[], []]
+        fetchone_results=[(0, None), (0,), (0,), (0,), (0,)], fetchall_results=[[], []]
     )
     app.dependency_overrides[estado_run_hoje] = lambda: _ESTADO_BLOQUEADO
 

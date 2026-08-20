@@ -16,7 +16,7 @@ Uso:
 import sys
 
 from app.config import get_settings
-from app.console.queries import carregar_estado_run, encerradas_sem_liquidacao, historico_coleta, mensagens_expiradas, orfaos_aguardando_partida, quota_mes
+from app.console.queries import carregar_estado_run, encerradas_sem_liquidacao, historico_coleta, mensagens_expiradas, orfaos_aguardando_partida, quota_mes, revisao_manual_pendente
 from app.console.rules import FONTES_COLETA, dias_fora_por_fonte, projetar_quota
 from app.db import get_connection
 from app.pipeline import data_operacional
@@ -41,6 +41,7 @@ def main() -> int:
             quota = projetar_quota(chamadas, limite, hoje)
             orfaos = orfaos_aguardando_partida(cur)
             sem_liquidacao = encerradas_sem_liquidacao(cur)
+            revisao_pendente = revisao_manual_pendente(cur)
             expiradas = mensagens_expiradas(cur)
             vencendo = listar_vencendo(cur, hoje=hoje)
 
@@ -67,6 +68,7 @@ def main() -> int:
 
     print(f"Picks orfaos aguardando fixture: {orfaos}")
     print(f"Fixtures encerradas sem liquidacao: {sem_liquidacao}")
+    print(f"Picks pendentes de revisao manual: {revisao_pendente}")
     print(f"Mensagens expiradas: {expiradas}")
     print()
 
