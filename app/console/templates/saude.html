@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% block titulo %}Saude - ZapTips Console{% endblock %}
+{% block conteudo %}
+  <h1>Saude do pipeline</h1>
+
+  {% if not estado.existe %}
+    <p class="bloqueio">O pipeline ainda nao rodou hoje.</p>
+  {% else %}
+    <p>Run de hoje: <strong>{{ estado.status }}</strong> (etapa atual: {{ estado.etapa_atual or "-" }})</p>
+    <table>
+      <thead>
+        <tr><th>Etapa</th><th>Status</th><th>OK</th><th>Erro</th></tr>
+      </thead>
+      <tbody>
+        {% for etapa in estado.etapas %}
+        <tr>
+          <td>{{ etapa.nome }}</td>
+          <td>{{ etapa.status }}</td>
+          <td>{{ etapa.itens_ok }}</td>
+          <td>{{ etapa.itens_erro }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  {% endif %}
+
+  <h2>Fontes</h2>
+  <ul>
+    {% for fonte, dias in dias_fora_por_fonte.items() %}
+      <li>{{ fonte }}: {% if dias == 0 %}ok{% else %}fora ha {{ dias }} dia(s){% endif %}</li>
+    {% endfor %}
+  </ul>
+
+  <h2>Cota OddsPapi (mes atual)</h2>
+  <p>
+    {{ quota.chamadas }} chamada(s)
+    {% if quota.limite %}de {{ quota.limite }} ({{ quota.restante }} restante(s)){% endif %}
+    - projecao fim do mes: {{ quota.projecao_fim_mes }}
+  </p>
+
+  <h2>Palpites orfaos aguardando partida</h2>
+  <p>{{ orfaos_aguardando_partida }}</p>
+
+  <h2>Partidas encerradas ha mais de 12h sem liquidacao</h2>
+  <p>{{ encerradas_sem_liquidacao }} <em>(liquidacao entra na Fase 6 - este numero e o backlog que ela vai encontrar, nao uma falha de hoje)</em></p>
+
+  <h2>Mensagens expiradas sem envio</h2>
+  <p>{{ mensagens_expiradas }} <em>(geracao de mensagens entra na Fase 5d - messages ainda esta vazia)</em></p>
+
+  <h2>Assinaturas vencendo nos proximos 5 dias</h2>
+  {% if not vencendo %}
+    <p>Nenhuma.</p>
+  {% else %}
+    <ul>
+      {% for item in vencendo %}
+        <li>{{ item.nome or item.telefone_e164 }} - vence {{ item.fim }} (em {{ item.dias_restantes }}d){% if item.ja_renovado %} (ja renovado){% endif %}</li>
+      {% endfor %}
+    </ul>
+  {% endif %}
+{% endblock %}

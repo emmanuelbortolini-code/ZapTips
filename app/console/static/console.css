@@ -1,0 +1,6 @@
+body { font-family: system-ui, sans-serif; margin: 2rem; color: #1a1a1a; }
+nav a { margin-right: 1rem; }
+.aviso { background: #fff3cd; border: 1px solid #ffe69c; padding: 0.75rem; margin-bottom: 1rem; }
+.bloqueio { background: #f8d7da; border: 1px solid #f1aeb5; padding: 0.75rem; margin-bottom: 1rem; }
+table { border-collapse: collapse; width: 100%; }
+th, td { border: 1px solid #ddd; padding: 0.4rem; text-align: left; }

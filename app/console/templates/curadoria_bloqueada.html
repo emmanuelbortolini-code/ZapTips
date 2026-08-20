@@ -1,0 +1,7 @@
+{% extends "base.html" %}
+{% block titulo %}Curadoria bloqueada - ZapTips Console{% endblock %}
+{% block conteudo %}
+  <h1>Curadoria</h1>
+  <p class="bloqueio">{{ acesso.motivo_bloqueio }}</p>
+  <p>Confira a aba <a href="/saude">Saude</a> pro estado detalhado do pipeline de hoje.</p>
+{% endblock %}

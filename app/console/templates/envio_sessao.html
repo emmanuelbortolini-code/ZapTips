@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+{% block titulo %}Envio - Modo sessão - ZapTips Console{% endblock %}
+{% block conteudo %}
+  <h1>Envio - Modo sessão</h1>
+  <p><a href="/envio">&larr; Modo manual</a></p>
+
+  {% if aviso_slate_mudou %}
+    <p class="aviso"><strong>Atenção: o slate de hoje foi corrigido depois que esta sessão comecou.</strong> As mensagens abaixo podem nao refletir o slate mais recente.</p>
+  {% endif %}
+
+  {% if resumo %}
+    {# D13: sessao encerrada sozinha porque a fila zerou - resumo do que
+       essa sessao fez, mostrado mesmo com `sessao` ja None abaixo. #}
+    <h2>Sessão concluída</h2>
+    <p>
+      Enviadas: {{ resumo.enviadas }} | Expiradas: {{ resumo.expiradas }} |
+      Ainda prontas (fora desta sessão): {{ resumo.prontas_restantes }}
+    </p>
+    {% if resumo.puladas %}
+      <ul>
+      {% for nome, telefone, motivo in resumo.puladas %}
+        <li>{{ nome or telefone }} ({{ telefone }}) - {{ motivo }}</li>
+      {% endfor %}
+      </ul>
+    {% endif %}
+  {% endif %}
+
+  {% if not sessao %}
+    <p>Nenhuma sessão de envio aberta hoje.</p>
+    {% if acesso_sessao.pode_iniciar %}
+      <form method="post" action="/envio/sessao/iniciar">
+        <button type="submit">Iniciar sessão</button>
+      </form>
+    {% else %}
+      <p>{{ acesso_sessao.motivo }}</p>
+    {% endif %}
+  {% else %}
+    <p>
+      Sessão {{ sessao.status }} desde {{ sessao.iniciada_em.strftime("%H:%M") }} |
+      posição atual: {{ progresso.concluidas + 1 if parada else progresso.total }} de {{ progresso.total }} |
+      restantes: {{ progresso.restantes }} |
+      tempo estimado: {{ progresso.duracao_estimada }}
+    </p>
+    <form method="post" action="/envio/sessao/{{ sessao.id }}/pausar" style="display:inline">
+      <button type="submit" {% if sessao.status != 'ativa' %}disabled{% endif %}>Pausar</button>
+    </form>
+    <form method="post" action="/envio/sessao/{{ sessao.id }}/retomar" style="display:inline">
+      <button type="submit" {% if sessao.status != 'pausada' %}disabled{% endif %}>Retomar</button>
+    </form>
+    <form method="post" action="/envio/sessao/{{ sessao.id }}/encerrar" style="display:inline">
+      <button type="submit">Encerrar sessão</button>
+    </form>
+
+    {% if sessao.status == 'pausada' %}
+      <p><strong>Sessão pausada - retome pra continuar enviando.</strong></p>
+    {% elif parada %}
+      <div id="sessao-root" data-intervalo-segundos="{{ intervalo_segundos }}">
+        <h2>{{ parada.nome or parada.telefone_e164 }} ({{ parada.telefone_e164 }})</h2>
+        <p>parada {{ parada.posicao }} de {{ progresso.total }}</p>
+        {% set modo = 'sessao' %}
+        {% for msg in parada.mensagens %}
+          {% include "_card_mensagem.html" %}
+        {% endfor %}
+        <p id="sessao-contagem" aria-live="polite"></p>
+        <button type="button" id="sessao-pular-intervalo">Pular intervalo</button>
+        <p><small>Aviso: enviar mensagens muito rapido, em sequência, e o padrão que mais chama atencão de sistemas anti-spam do WhatsApp - o intervalo existe pra imitar envio manual.</small></p>
+      </div>
+    {% endif %}
+  {% endif %}
+{% endblock %}
+{% block scripts %}
+  <script src="/static/sessao.js" defer></script>
+{% endblock %}

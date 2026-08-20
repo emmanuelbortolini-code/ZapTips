@@ -1,0 +1,14 @@
+-- Fase 5c: scripts/build_slate.py::criar_ou_reaproveitar_slate apaga e
+-- reconstroi slate_picks todo re-run (comportamento correto pra manter
+-- o rascunho atualizado ANTES da curadoria comecar - comentario original
+-- da migration 0013/build_slate.py). Mas isso tambem apaga qualquer
+-- remocao/reordenacao/edicao manual feita no console - achado real desta
+-- fase (nao coberto quando build_slate.py foi escrito, porque a
+-- curadoria em si nao existia ainda). Rotina uma vez o scheduler da
+-- Fase 7 existir: um re-run as 09h apagaria a curadoria feita as 08h.
+--
+-- curadoria_iniciada_em marca "a partir de agora, e trabalho humano, nao
+-- so dado automatico" - build_slate.py passa a respeitar isso, mesma
+-- forma do guard substitui_slate_id is null que a 0014 ja usa pra nao
+-- tocar rascunho de correcao.
+alter table daily_slates add column curadoria_iniciada_em timestamptz;

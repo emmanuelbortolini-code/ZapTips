@@ -1,0 +1,142 @@
+{% extends "base.html" %}
+{% block titulo %}Curadoria - ZapTips Console{% endblock %}
+{% block conteudo %}
+  <h1>Curadoria{% if slate_status %} - slate {{ slate_status }}{% endif %}</h1>
+
+  {% for aviso in acesso.avisos %}
+    <p class="aviso">{{ aviso.etapa }}: {{ aviso.mensagem }}</p>
+  {% endfor %}
+
+  {% if substitui_slate_id %}
+    <p class="aviso">Este rascunho e uma correcao - substitui o slate {{ substitui_slate_id }} ja aprovado.</p>
+  {% endif %}
+
+  {% if not itens %}
+    <p>Nenhum item no rascunho de hoje.</p>
+  {% else %}
+    <table>
+      <thead>
+        <tr>
+          <th>Partida</th><th>Kickoff</th><th>Mercado / Selecao</th>
+          <th>Odd citada</th><th>Odd referencia</th><th>Piso</th><th>Fonte / Tipster</th><th>Acoes</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for item in itens %}
+        <tr>
+          <td>{{ item.time_casa }} x {{ item.time_fora }} ({{ item.competicao or "-" }})</td>
+          <td>{{ item.kickoff_local.strftime("%d/%m %H:%M") }}</td>
+          <td>{{ item.mercado }} - {{ item.selecao }}</td>
+          <td>
+            {{ item.odd_citada or "-" }} {{ item.casa_citada or "" }}
+            {% if item.divergencia %}<span title="odd citada diverge muito da odd de referencia">&#9888; diverge</span>{% endif %}
+          </td>
+          <td>
+            {% if item.odd_referencia is none %}
+              <strong>sem odd de referencia - bloqueia aprovacao</strong>
+            {% else %}
+              {{ item.odd_referencia }} ({{ item.odd_referencia_origem or "manual" }})
+            {% endif %}
+          </td>
+          <td>{{ item.odd_minima if item.odd_minima is not none else "-" }}</td>
+          <td>{{ item.fonte_nome }} / {{ item.tipster or "-" }}</td>
+          <td>
+            <form method="post" action="/curadoria/{{ slate_id }}/reordenar/{{ item.slate_pick_id }}" style="display:inline">
+              <input type="hidden" name="direcao" value="subir"><button type="submit">&uarr;</button>
+            </form>
+            <form method="post" action="/curadoria/{{ slate_id }}/reordenar/{{ item.slate_pick_id }}" style="display:inline">
+              <input type="hidden" name="direcao" value="descer"><button type="submit">&darr;</button>
+            </form>
+            <form method="post" action="/curadoria/{{ slate_id }}/odd-referencia/{{ item.slate_pick_id }}" style="display:inline">
+              <input type="text" name="nova_odd" size="5" placeholder="odd ref.">
+              <button type="submit">salvar odd</button>
+            </form>
+            <form method="post" action="/curadoria/{{ slate_id }}/piso/{{ item.slate_pick_id }}" style="display:inline">
+              <input type="text" name="novo_piso" size="5" placeholder="piso">
+              <button type="submit">salvar piso</button>
+            </form>
+            <form method="post" action="/curadoria/{{ slate_id }}/remover/{{ item.slate_pick_id }}" style="display:inline">
+              <button type="submit">remover</button>
+            </form>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  {% endif %}
+
+  {% if excluidos %}
+    <h2>Excluidos hoje da curadoria</h2>
+    <ul>
+      {% for pick_id, motivo, time_casa, time_fora in excluidos %}
+        <li>{{ time_casa }} x {{ time_fora }}: {{ motivo }}</li>
+      {% endfor %}
+    </ul>
+  {% endif %}
+
+  {% if conflitos %}
+    <h2>Conflitos sem decisao - bloqueiam aprovacao</h2>
+    {% for chave, grupo in conflitos.items() %}
+      <div class="aviso">
+        <p>{{ chave[1] }}:
+          {% for pick_id, selecao, tipster in grupo %}
+            {{ selecao }} ({{ tipster or "sem tipster" }}){% if not loop.last %}, {% endif %}
+          {% endfor %}
+        </p>
+        {% for pick_id, selecao, tipster in grupo %}
+          <form method="post" action="/curadoria/{{ slate_id }}/conflito/usar/{{ pick_id }}" style="display:inline">
+            <button type="submit">usar "{{ selecao }}"</button>
+          </form>
+        {% endfor %}
+        <form method="post" action="/curadoria/{{ slate_id }}/conflito/descartar" style="display:inline">
+          <input type="hidden" name="pick_ids" value="{{ grupo | map(attribute=0) | join(',') }}">
+          <button type="submit">descartar todas</button>
+        </form>
+      </div>
+    {% endfor %}
+  {% endif %}
+
+  {% if slate_id and slate_status == "rascunho" %}
+    <h2>Adicionar palpite manual</h2>
+    <form method="post" action="/curadoria/{{ slate_id }}/palpite-manual">
+      <select name="fixture_id" required>
+        <option value="" disabled selected>-- partida --</option>
+        {% for f in fixturas_elegiveis %}
+          <option value="{{ f.fixture_id }}">{{ f.time_casa }} x {{ f.time_fora }} ({{ f.liga }})</option>
+        {% endfor %}
+      </select>
+      <select name="mercado" required>
+        <option value="1x2">1x2</option>
+        <option value="over_under">Over/Under</option>
+        <option value="ambas_marcam">Ambas marcam</option>
+        <option value="handicap">Handicap</option>
+        <option value="escanteios">Escanteios</option>
+        <option value="cartoes">Cartoes</option>
+        <option value="outro">Outro</option>
+      </select>
+      <input type="text" name="selecao" placeholder="selecao" required>
+      <input type="text" name="odd_referencia" placeholder="odd de referencia" required>
+      <button type="submit">Adicionar</button>
+    </form>
+  {% endif %}
+
+  {% if slate_id and slate_status == "rascunho" %}
+    {% if bloqueios %}
+      <div class="bloqueio">
+        <h2>Aprovacao bloqueada</h2>
+        <ul>
+          {% for b in bloqueios %}<li>{{ b.mensagem }}</li>{% endfor %}
+        </ul>
+      </div>
+    {% else %}
+      <form method="post" action="/curadoria/{{ slate_id }}/aprovar">
+        <button type="submit">Aprovar slate</button>
+      </form>
+    {% endif %}
+  {% elif slate_id and slate_status == "aprovado" %}
+    <p>Slate aprovado - imutavel. Para corrigir, gere uma nova versao (referencia esta como substituida).</p>
+    <form method="post" action="/curadoria/{{ slate_id }}/gerar-correcao">
+      <button type="submit">Gerar correcao</button>
+    </form>
+  {% endif %}
+{% endblock %}

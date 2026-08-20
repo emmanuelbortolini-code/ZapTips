@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <title>{% block titulo %}ZapTips Console{% endblock %}</title>
+  <link rel="stylesheet" href="/static/console.css">
+</head>
+<body>
+  <!--
+    Autoescape esta ligado (app/console/main.py) - qualquer campo vindo
+    de picks/raw_picks/sources e texto raspado de Telegram/WordPress,
+    nao confiavel. NUNCA usar `| safe` em campo vindo dessas tabelas
+    neste diretorio de templates.
+  -->
+  <nav>
+    <a href="/saude">Saude</a>
+    <a href="/curadoria">Curadoria</a>
+    <a href="/envio">Envio</a>
+  </nav>
+  <main>
+    {% block conteudo %}{% endblock %}
+  </main>
+  {% block scripts %}{% endblock %}
+</body>
+</html>

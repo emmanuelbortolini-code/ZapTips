@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% block titulo %}Envio - ZapTips Console{% endblock %}
+{% block conteudo %}
+  <h1>Envio</h1>
+  <p><a href="/envio/sessao">Modo sess&atilde;o &rarr;</a></p>
+
+  <p>
+    Prontas: {{ contadores.prontas }} |
+    Enviadas hoje: {{ contadores.enviadas_hoje }} |
+    Expirando nas proximas 2h: {{ contadores.expirando_2h }}
+  </p>
+
+  {% if not grupos %}
+    <p>Nenhuma mensagem pronta pra enviar.</p>
+  {% endif %}
+
+  {% for grupo in grupos %}
+    <div class="aviso">
+      <h2>{{ grupo.nome or grupo.telefone_e164 }} ({{ grupo.telefone_e164 }})</h2>
+
+      {% if grupo.mensagens | length > 1 %}
+        <p>
+          <a href="{{ grupo.link_whatsapp_grupo }}" target="_blank">Abrir tudo no WhatsApp (uma conversa)</a>
+          {% if grupo.excede_limite_grupo %}<strong>- texto combinado passa de 1500 caracteres</strong>{% endif %}
+        </p>
+      {% endif %}
+
+      {% set modo = 'manual' %}
+      {% for msg in grupo.mensagens %}
+        {% include "_card_mensagem.html" %}
+      {% endfor %}
+    </div>
+  {% endfor %}
+{% endblock %}
