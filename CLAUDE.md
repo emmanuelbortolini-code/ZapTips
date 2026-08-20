@@ -208,9 +208,15 @@ fase — detalhe completo em [`docs/HISTORICO.md`](docs/HISTORICO.md):
     foram movidos pra `.github/workflows/*.yml` (GitHub Actions, cron),
     que roda sem depender do PC do PM estar ligado. `scripts/agendador.py`
     continua existindo pra uso local/manual, mas deixa de ser o caminho de
-    produção. Falta o PM adicionar os secrets `DATABASE_URL`/
-    `ODDSPAPI_API_KEY` no GitHub e validar a primeira execução real de
-    cada workflow (`workflow_dispatch` manual antes de confiar no cron).
+    produção. Dois bugs reais só apareceram na primeira execução de
+    verdade (detalhe em `docs/HISTORICO.md`): input inválido
+    `python-version` no `setup-uv` (corrigido), e `DATABASE_URL` de
+    conexão direta do Supabase resolvendo IPv6 (sem rota nos runners do
+    GitHub Actions) — corrigido trocando o secret pela connection string
+    do **pooler** (`*.pooler.supabase.com`, ver nota em `.env.example`).
+    `pipeline-diario.yml` já validado rodando verde; os outros 4 workflows
+    ainda não foram disparados manualmente pra confirmar (pendência real,
+    compartilham o mesmo secret já corrigido, mas sem confirmação ainda).
 11. ~~Matcher recusava "Grêmio Novorizontino SP"~~ — resolvido em
     2026-08-20: `app.matcher.match_team_name` agora prioriza um match
     exato de UM time sobre empate com fuzzy de OUTRO time (antes os dois

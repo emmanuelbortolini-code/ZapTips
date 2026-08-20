@@ -3414,3 +3414,38 @@ recomendado disparar cada workflow manualmente uma vez
 rodando sozinho — mesma disciplina de validação ao vivo já seguida no
 resto do projeto, mas que só o PM pode executar (exige acesso ao painel
 do GitHub que esta sessão não tem).
+
+### Validação real: dois bugs pegos só na primeira execução de verdade
+
+O PM disparou `pipeline-diario.yml` manualmente (`workflow_dispatch`) e
+achou 2 problemas reais que nenhuma revisão estática pegaria, exatamente
+o tipo de coisa que só aparece rodando contra a infraestrutura real do
+GitHub Actions:
+
+1. **`astral-sh/setup-uv@v3` não aceita o input `python-version`** — esse
+   input é do `actions/setup-python`, não do `setup-uv`; passá-lo quebrava
+   o step com exit code 1 antes mesmo de instalar dependências. Como o
+   projeto já tem `.python-version` (3.11) versionado na raiz, `uv sync`
+   já lê esse arquivo sozinho e instala a versão certa — o input era
+   redundante e, pior, inválido. Corrigido removendo o bloco `with:` dos
+   5 workflows (commit separado, depois do commit inicial dos 5
+   arquivos).
+2. **Conexão direta do Supabase (`db.xxxxx.supabase.co`) resolve para
+   IPv6, e os runners do GitHub Actions não têm rota IPv6** — erro real:
+   `psycopg.OperationalError: ... Network is unreachable` num endereço
+   `2a05:d018:...`. Não é bug do projeto nem do workflow, é limitação de
+   rede do runner hospedado (comum o suficiente que o próprio Supabase
+   oferece a solução pronta): trocar o secret `DATABASE_URL` pela
+   connection string do **pooler** (`*.pooler.supabase.com`, porta 5432
+   ou 6543, usuário vira `postgres.<project-ref>`), que é IPv4. Só o PM
+   podia fazer essa troca (acesso ao painel do Supabase e aos secrets do
+   GitHub). Depois da troca, `pipeline-diario.yml` rodou verde de ponta a
+   ponta.
+
+**Pendência real, não fechada ainda:** só `pipeline-diario.yml` foi
+validado com execução real até aqui. Os outros 4 workflows
+(`coleta-liquidacao`, `fechamento-diario`, `backup-diario`,
+`resumo-semanal`) compartilham o mesmo secret `DATABASE_URL` (agora
+corrigido pro pooler), então devem funcionar também, mas isso ainda não
+foi confirmado disparando cada um manualmente. Vale o PM fazer esse
+disparo antes de confiar 100% no cron de cada um.
