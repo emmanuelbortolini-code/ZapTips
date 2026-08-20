@@ -16,8 +16,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v3
-        with:
-          python-version: "3.11"
       - run: uv sync
       - name: instalar pg_dump
         run: sudo apt-get update && sudo apt-get install -y postgresql-client
