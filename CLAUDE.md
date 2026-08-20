@@ -144,25 +144,22 @@ fase — detalhe completo em [`docs/HISTORICO.md`](docs/HISTORICO.md):
    continua manual — o script só gera o artefato local, nunca sobe sozinho.
 2. `pg_dump` não instalado na máquina do PM — `scripts/backup.py` falha
    graciosamente até isso ser resolvido.
-3. Padrão `coluna::date = %s` em `app/console/queries.py` (`/saude`,
-   `scripts/health.py`) tem o mesmo risco de fuso já corrigido em
-   `relatorio_diario.py`/`resumo_do_dia` — não corrigido ainda.
-4. Nível 3 da hierarquia de odds (bloco nativo da ESPN) — adapter não existe.
-5. Detecção de conflito em `app/slate.py` só normaliza seleção pro mercado
+3. Nível 3 da hierarquia de odds (bloco nativo da ESPN) — adapter não existe.
+4. Detecção de conflito em `app/slate.py` só normaliza seleção pro mercado
    1x2; `over_under`/`ambas_marcam`/`handicap` comparam texto bruto.
-6. Parser de "cartões, condição por time" — só o marcador existe, falta
+5. Parser de "cartões, condição por time" — só o marcador existe, falta
    texto real pra validar o parser completo.
-7. Alerta de 15% de picks não-liquidáveis por fonte — não existe canal de
+6. Alerta de 15% de picks não-liquidáveis por fonte — não existe canal de
    alerta no projeto ainda.
-8. `casas.aliases` vazio (sem urgência — resolução de `casa_id` já é 100%
+7. `casas.aliases` vazio (sem urgência — resolução de `casa_id` já é 100%
    sem alias).
-9. Contagem de picks pendentes de revisão manual (`nao_liquidavel`) não
+8. Contagem de picks pendentes de revisão manual (`nao_liquidavel`) não
    aparece no console `/saude` — só via `scripts/liquidacao.py listar`.
-10. `scripts/relatorio.py` (usuário/fontes) só tem CLI — nenhuma rota do
-    console mostra essas métricas ainda.
-11. Uso auxiliar do `/settlements` do OddsPapi (conferência amostral de
+9. `scripts/relatorio.py` (usuário/fontes) só tem CLI — nenhuma rota do
+   console mostra essas métricas ainda.
+10. Uso auxiliar do `/settlements` do OddsPapi (conferência amostral de
     liquidação) — não implementado.
-12. Agendador nunca rodou um dia inteiro em produção — só validado
+11. Agendador nunca rodou um dia inteiro em produção — só validado
     localmente (start/stop, registro dos jobs).
 13. Volume real ainda baixo pra validar conflito de picks/limite diário do
     slate com dado de produção de verdade.

@@ -18,7 +18,7 @@ import psycopg
 
 from app.daily_slates import buscar_slate_atual, existe_pick_quarentena_no_slate  # noqa: F401 - reexport (Fase 5d)
 from app.picks_orfaos import TIPO_SEM_FIXTURE
-from app.pipeline import ETAPAS, StatusEtapa, StatusRun, limites_utc_do_dia
+from app.pipeline import ETAPAS, StatusEtapa, StatusRun, data_operacional, limites_utc_do_dia
 from app.subs import SQL_ASSINANTE_ATIVO
 
 
@@ -458,11 +458,21 @@ def contadores_do_dia(cur: psycopg.Cursor, agora: datetime) -> ContadoresEnvio:
     # onde ela devia contar normalmente. `f.kickoff_utc <= ...` com
     # kickoff_utc NULL avalia pra desconhecido/falso em SQL, entao
     # expirando_2h ja exclui resumo semanal sem precisar de guarda extra.
+    #
+    # `enviada_em >= inicio_utc and < fim_utc` (nao `enviada_em::date =
+    # %s::date`) pelo mesmo motivo ja documentado em
+    # universo_da_sessao/resumo_do_dia acima e em app.relatorio_diario:
+    # `::date` avalia no fuso da SESSAO do Postgres (UTC por padrao), nao
+    # em America/Sao_Paulo. Um envio as 21h30 BRT (00h30 UTC do dia
+    # seguinte) seria contado em `enviadas_hoje` do dia errado.
+    inicio_utc, fim_utc = limites_utc_do_dia(data_operacional(agora))
     cur.execute(
         f"""
         select
             count(*) filter (where m.status = 'pronta') as prontas,
-            count(*) filter (where m.status = 'enviada' and m.enviada_em::date = %s::date) as enviadas_hoje,
+            count(*) filter (
+                where m.status = 'enviada' and m.enviada_em >= %s and m.enviada_em < %s
+            ) as enviadas_hoje,
             count(*) filter (
                 where m.status = 'pronta' and f.kickoff_utc <= %s + interval '2 hours'
             ) as expirando_2h
@@ -471,7 +481,7 @@ def contadores_do_dia(cur: psycopg.Cursor, agora: datetime) -> ContadoresEnvio:
         join users u on u.id = m.user_id
         where {SQL_ASSINANTE_ATIVO}
         """,
-        (agora, agora),
+        (inicio_utc, fim_utc, agora),
     )
     prontas, enviadas_hoje, expirando_2h = cur.fetchone()
     return ContadoresEnvio(prontas=prontas, enviadas_hoje=enviadas_hoje, expirando_2h=expirando_2h)

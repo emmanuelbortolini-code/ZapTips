@@ -85,3 +85,34 @@ def test_contadores_do_dia_usa_left_join_fixtures():
 
     sql = cur.queries[0][0]
     assert "left join fixtures" in sql
+
+
+def test_contadores_do_dia_nao_usa_date_cast_cru():
+    # Mesma classe de bug ja corrigida em universo_da_sessao/resumo_do_dia
+    # e app.relatorio_diario: `enviada_em::date = %s::date` avalia no
+    # fuso da sessao do Postgres (UTC), nao America/Sao_Paulo - um envio
+    # as 21h30 BRT (00h30 UTC do dia seguinte) cairia no dia errado.
+    cur = FakeCursor(fetchone_results=[(3, 2, 1)])
+
+    contadores_do_dia(cur, datetime(2026, 8, 11, 16, 0, tzinfo=timezone.utc))
+
+    sql = cur.queries[0][0]
+    assert "::date" not in sql
+    assert "m.enviada_em >= %s and m.enviada_em < %s" in sql
+
+
+def test_contadores_do_dia_usa_limites_utc_do_dia_operacional():
+    # 21h30 BRT de 11/08 e' 00h30 UTC de 12/08 - o dia operacional
+    # (America/Sao_Paulo) e' 11/08, entao os limites UTC do intervalo de
+    # "enviadas_hoje" devem cobrir 11/08 00h BRT (03h UTC) ate 12/08 00h
+    # BRT (03h UTC do dia seguinte), nao a meia-noite UTC crua.
+    cur = FakeCursor(fetchone_results=[(0, 0, 0)])
+    agora = datetime(2026, 8, 11, 23, 30, tzinfo=timezone.utc)  # 20h30 BRT do dia 11
+
+    contadores_do_dia(cur, agora)
+
+    params = cur.queries[0][1]
+    inicio_utc, fim_utc, agora_passado = params
+    assert inicio_utc == datetime(2026, 8, 11, 3, 0, tzinfo=timezone.utc)
+    assert fim_utc == datetime(2026, 8, 12, 3, 0, tzinfo=timezone.utc)
+    assert agora_passado == agora

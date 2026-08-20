@@ -2461,6 +2461,46 @@ arquivos novos (`test_relatorio_publico.py`,
 `test_settlement_metricas_publicas.py`, `test_pagina_publica.py`,
 `test_gerar_pagina_publica.py`).
 
+## Correção do bug de fuso em `contadores_do_dia` (pendência #3 da Fase 7): concluída
+
+Pendência explícita desde o achado original em `app/relatorio_diario.py`
+(Fase 7) e no checklist manual de sessão (Fase 6e): o mesmo padrão
+`coluna::date = %s` já corrigido em `universo_da_sessao`/`resumo_do_dia`
+(`app/console/queries.py`) e em `relatorio_diario.py` continuava vivo em
+`contadores_do_dia` (mesmo arquivo, usada por `GET /envio` — a aba de
+Envio do console, Fase 5d/6e), no filtro `enviadas_hoje`:
+`m.enviada_em::date = %s::date`. Mesmo risco de sempre: `::date` avalia
+no fuso da SESSÃO do Postgres (UTC por padrão), não em
+`America/Sao_Paulo` — um envio às 21h30 BRT (00h30 UTC do dia seguinte)
+seria contado no dia errado, bem na janela que mais importa pro operador
+fechar a sessão de envio.
+
+Corrigido com o mesmo padrão já estabelecido: `contadores_do_dia` agora
+calcula `data_operacional(agora)` + `limites_utc_do_dia(...)` (ambos de
+`app.pipeline`, já usados pelas outras duas funções do mesmo arquivo) e
+troca o filtro pra `m.enviada_em >= %s and m.enviada_em < %s`. O filtro
+`expirando_2h` (compara `kickoff_utc` contra `agora + 2h`, uma janela
+móvel, não um dia de calendário) foi deixado intocado, corretamente —
+não é a mesma classe de bug.
+
+Auditoria de todo o projeto (`grep -rn "::date"`) confirmou que não
+sobrava mais nenhuma outra ocorrência problemática do padrão: os únicos
+outros `::date` restantes são em `app/messages_generator.py`
+(comparação de datas puras, já calculadas em `America/Sao_Paulo` antes
+de virar parâmetro — achado corrigido na Fase 6b) e `app/subs.py`
+(`generate_series` de datas de calendário, nunca timestamptz) — nenhum
+dos dois é a mesma classe de bug.
+
+2 testes de regressão novos em `tests/test_console_queries_envio.py`
+(`FakeCursor`, mesma convenção do arquivo): confirma ausência de
+`::date` na SQL e o texto exato do filtro por intervalo, e confirma os
+parâmetros `inicio_utc`/`fim_utc` calculados pra um horário real de
+virada BRT/UTC (20h30 BRT = 23h30 UTC do mesmo dia). Revisado pelo
+`code-reviewer`: **aprovado, 0 achados** — fix semanticamente correto,
+consistente com o padrão já estabelecido, `expirando_2h` corretamente
+preservado, testes corretos e idiomáticos. Suíte em **987 testes** (985
++ 2 novos).
+
 ## Checklist manual do modo sessão (pendência da Fase 5d): concluído, com achado real corrigido
 
 Pendência explícita desde a Fase 5d ("o checklist interativo de
