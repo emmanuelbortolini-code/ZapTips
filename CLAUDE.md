@@ -149,6 +149,11 @@ fase — detalhe completo em [`docs/HISTORICO.md`](docs/HISTORICO.md):
   `/saude` ganhou botão "sincronizar" por etapa (`POST /saude/
   sincronizar/{etapa}`, roda em background via `BackgroundTasks`, com
   trava em memória contra clique duplo — detalhe em `docs/HISTORICO.md`).
+  `/curadoria` ganhou a seção "Todos os palpites do dia" (todo pick
+  ligado a fixture nas próximas 24h, qualquer status — não só os que
+  entraram no slate). `/envio` ganhou edição de texto por mensagem
+  (`POST /envio/{id}/editar`, só enquanto `status='pronta'`, reaproveita
+  `regerar_corpos` que já existia sem uso).
 - **Fase 6 (a–e)** — Motor de liquidação por mercado (1x2, ambas marcam,
   over/under, handicap, escanteios, cartões), simulação de banca
   (`master_ledger`/`bets`), métricas por usuário, performance por fonte,

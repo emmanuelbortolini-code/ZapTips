@@ -282,6 +282,71 @@ def excluidos_do_dia(cur: psycopg.Cursor, fixture_ids: list[str]) -> list[tuple[
 
 
 @dataclass(frozen=True)
+class PickDoDia:
+    pick_id: str
+    fixture_id: str
+    mercado: str
+    selecao: str
+    status: str
+    time_casa: str | None
+    time_fora: str | None
+    kickoff_utc: datetime
+    odd_citada: float | None
+    casa_citada: str | None
+    odd_referencia: float | None
+    odd_referencia_origem: str | None
+    odd_minima: float | None
+    fonte_nome: str | None
+    tipster: str | None
+    no_slate: bool
+
+
+def picks_do_dia(cur: psycopg.Cursor) -> tuple[PickDoDia, ...]:
+    """Todos os picks ligados a uma fixture nas proximas 24h, qualquer
+    status - nao so os que entraram no slate (carregar_itens_slate). Da
+    visibilidade pro operador do que ficou de fora e por que (sem_odd,
+    revisao_manual, descartado) antes de aprovar, pedido explicito do
+    PM ("mostrar todos os palpites do dia") depois do redesign da
+    Curadoria.
+
+    Mesma janela de fixturas_elegiveis_do_dia/build_slate.py (proximas
+    24h) e mesmo filtro de quarentena de carregar_itens_slate/
+    conflitos_por_fixture (Fase 5c, "fonte em quarentena nao aparece
+    nesta aba em hipotese alguma") - essa listagem vive na mesma pagina,
+    a garantia vale igual aqui."""
+    cur.execute(
+        """
+        select p.id, p.fixture_id, p.mercado, p.selecao, p.status,
+               tc.nome_canonico, tf.nome_canonico, f.kickoff_utc,
+               p.odd_citada, c.nome, p.odd_referencia, p.odd_referencia_origem, p.odd_minima,
+               s.nome, p.tipster,
+               exists(select 1 from slate_picks sp where sp.pick_id = p.id) as no_slate
+        from picks p
+        join fixtures f on f.id = p.fixture_id
+        join teams tc on tc.id = f.home_team_id
+        join teams tf on tf.id = f.away_team_id
+        join raw_picks rp on rp.id = p.raw_pick_id
+        join sources s on s.id = rp.source_id
+        left join casas c on c.id = p.casa_id
+        where f.kickoff_utc between now() and now() + interval '24 hours'
+          and s.quarentena is not true
+        order by f.kickoff_utc, p.mercado
+        """
+    )
+    return tuple(
+        PickDoDia(
+            pick_id=str(row[0]), fixture_id=str(row[1]), mercado=row[2], selecao=row[3], status=row[4],
+            time_casa=row[5], time_fora=row[6], kickoff_utc=row[7],
+            odd_citada=float(row[8]) if row[8] is not None else None, casa_citada=row[9],
+            odd_referencia=float(row[10]) if row[10] is not None else None, odd_referencia_origem=row[11],
+            odd_minima=float(row[12]) if row[12] is not None else None,
+            fonte_nome=row[13], tipster=row[14], no_slate=row[15],
+        )
+        for row in cur.fetchall()
+    )
+
+
+@dataclass(frozen=True)
 class MensagemNaFila:
     message_id: str
     user_id: str

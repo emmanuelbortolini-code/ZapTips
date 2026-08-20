@@ -228,7 +228,7 @@ td.num, .odd { font-family: var(--font-mono); }
 
 form { display: inline-flex; align-items: center; gap: var(--space-2); }
 
-input[type="text"], select {
+input[type="text"], select, textarea {
   font-family: inherit;
   font-size: 0.85rem;
   background: var(--surface-2);
@@ -238,12 +238,18 @@ input[type="text"], select {
   padding: var(--space-2) var(--space-3);
 }
 
-input[type="text"]:focus, select:focus, button:focus-visible {
+textarea {
+  width: 100%;
+  resize: vertical;
+  line-height: 1.5;
+}
+
+input[type="text"]:focus, select:focus, textarea:focus, button:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 1px;
 }
 
-input[type="text"]::placeholder { color: var(--text-faint); }
+input[type="text"]::placeholder, textarea::placeholder { color: var(--text-faint); }
 
 button {
   font-family: inherit;
@@ -395,6 +401,28 @@ button.icone { padding: var(--space-1) var(--space-2); font-size: 0.9rem; }
   color: var(--text-dim);
   max-height: 260px;
   overflow-y: auto;
+}
+
+.editor-mensagem { margin: 0 0 var(--space-3); }
+
+.editor-mensagem summary {
+  cursor: pointer;
+  font-size: 0.8rem;
+  color: var(--accent);
+  font-weight: 600;
+  padding: var(--space-1) 0;
+  list-style: none;
+}
+.editor-mensagem summary::-webkit-details-marker { display: none; }
+.editor-mensagem summary::before { content: "\25B8  "; }
+.editor-mensagem[open] summary::before { content: "\25BE  "; }
+
+.editor-mensagem form {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
 }
 
 .acoes-mensagem { display: flex; flex-wrap: wrap; gap: var(--space-2); align-items: center; }

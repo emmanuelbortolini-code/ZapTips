@@ -16,6 +16,14 @@
   {% endif %}
   <pre>{{ msg.corpo_renderizado }}</pre>
   {% if msg.excede_limite %}<p class="aviso">Texto passa de 1500 caracteres.</p>{% endif %}
+  <details class="editor-mensagem">
+    <summary>Editar texto</summary>
+    <form method="post" action="/envio/{{ msg.message_id }}/editar">
+      <input type="hidden" name="modo" value="{{ modo }}">
+      <textarea name="corpo" rows="8">{{ msg.corpo_renderizado }}</textarea>
+      <button type="submit">Salvar texto</button>
+    </form>
+  </details>
   <div class="acoes-mensagem">
     <a href="{{ msg.link_whatsapp }}" target="_blank" class="btn-whatsapp">Abrir no WhatsApp</a>
     <form method="post" action="/envio/{{ msg.message_id }}/enviada">

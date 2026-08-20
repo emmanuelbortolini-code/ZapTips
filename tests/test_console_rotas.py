@@ -105,7 +105,7 @@ def test_curadoria_bloqueada_quando_nao_ha_run_hoje():
 
 def test_curadoria_liberada_sem_slate_no_banco_mostra_vazio():
     app.dependency_overrides[estado_run_hoje] = lambda: _ESTADO_LIBERADO
-    app.dependency_overrides[get_cursor] = lambda: FakeCursor(fetchone_results=[None], fetchall_results=[[]])
+    app.dependency_overrides[get_cursor] = lambda: FakeCursor(fetchone_results=[None], fetchall_results=[[], []])
 
     resposta = client.get("/curadoria")
 

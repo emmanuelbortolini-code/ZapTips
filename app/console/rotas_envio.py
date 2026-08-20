@@ -10,7 +10,7 @@ from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import RedirectResponse
 
 from app.config import get_settings
-from app.console.acoes import encerrar_sessao, iniciar_sessao, marcar_enviada, pausar_sessao, pular, retomar_sessao
+from app.console.acoes import encerrar_sessao, iniciar_sessao, marcar_enviada, pausar_sessao, pular, regerar_corpos, retomar_sessao
 from app.console.deps import checar_origin, estado_run_hoje, get_conexao, get_cursor
 from app.console.queries import (
     EstadoRun,
@@ -104,6 +104,24 @@ def _bloqueado_por_pausa(cur: psycopg.Cursor, modo: str) -> None:
     sessao = buscar_sessao_aberta(cur, data_operacional())
     if sessao is not None and sessao.status == "pausada":
         raise HTTPException(status_code=409, detail="sessao de envio esta pausada")
+
+
+@router.post("/envio/{message_id}/editar", dependencies=[Depends(checar_origin)])
+def post_editar_corpo_mensagem(
+    message_id: str,
+    corpo: str = Form(...),
+    modo: str = Form(default="manual"),
+    conn: psycopg.Connection = Depends(get_conexao),
+) -> RedirectResponse:
+    if not corpo.strip():
+        raise HTTPException(status_code=400, detail="corpo da mensagem nao pode ser vazio")
+    with conn.cursor() as cur:
+        _bloqueado_por_pausa(cur, modo)
+        if regerar_corpos(cur, {message_id: corpo.strip()}) == 0:
+            raise HTTPException(status_code=409, detail="mensagem nao esta mais 'pronta' - nao da pra editar")
+    conn.commit()
+    destino = "/envio/sessao" if modo == "sessao" else "/envio"
+    return RedirectResponse(url=destino, status_code=303)
 
 
 @router.post("/envio/{message_id}/enviada", dependencies=[Depends(checar_origin)])

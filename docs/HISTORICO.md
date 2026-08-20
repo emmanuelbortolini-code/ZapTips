@@ -3071,3 +3071,79 @@ rede externa - escolhida de propósito pra não gastar cota de API só
 testando o botão) devolveu 303 na hora, o log confirmou
 `Run ... retomado` rodando em background, e a página seguinte já
 mostrava o resultado atualizado.
+
+## Curadoria: "todos os palpites do dia" + edição de texto em Envio: concluído
+
+Pedido do PM: "em curadoria, tem que mostrar todos os palpites do dia
+listados, e tem que ter a opção de editar o texto que vai para o
+whatsapp". Antes de codar, duas perguntas de escopo foram feitas e
+respondidas: (1) "todos os palpites do dia" inclui os que NÃO entraram
+no slate (sem odd, revisão manual, excluídos), não só o rascunho atual;
+(2) a edição de texto acontece DEPOIS do slate aprovado, na aba Envio
+(onde o texto já existe de verdade), não uma pré-visualização editável
+dentro da Curadoria antes da mensagem existir - a segunda opção exigiria
+uma feature nova (override de texto armazenado, usado na geração em vez
+do texto automático), desproporcional ao pedido.
+
+### Todos os palpites do dia
+
+`app/console/queries.py::picks_do_dia` - todo pick ligado a uma fixture
+nas próximas 24h (mesma janela de `fixturas_elegiveis_do_dia`/
+`build_slate.py`), qualquer status, com `exists(select 1 from
+slate_picks...)` indicando se já está no rascunho. Mesmo filtro de
+quarentena de `carregar_itens_slate`/`conflitos_por_fixture` (Fase 5c,
+"fonte em quarentena não aparece nesta aba em hipótese alguma") - é
+puramente uma tabela de leitura, sem nenhuma ação de escrita associada,
+adicionada à `ver_curadoria` nos dois branches (com e sem slate criado).
+
+### Edição de texto em Envio
+
+Achado ao investigar: já existia `app/console/acoes.py::regerar_corpos`
+(D12, Fase 5d) - função pronta pra sobrescrever `corpo_renderizado` de
+uma mensagem ainda `'pronta'`, criada pra um botão "regerar mensagem"
+da spec original que nunca foi conectado a nenhuma rota (código morto).
+Reaproveitada em vez de duplicar: `POST /envio/{message_id}/editar`
+chama `regerar_corpos(cur, {message_id: corpo})`, mesmo gate atômico
+(`WHERE status = 'pronta'` no UPDATE, não um SELECT-antes-de-UPDATE) já
+usado por `marcar_enviada`/`pular`. `_card_mensagem.html` (compartilhado
+por `/envio` manual e `/envio/sessao`) ganhou um `<details><summary>
+Editar texto</summary>` com `<textarea>` pré-preenchido - HTML nativo,
+sem JS novo, verificado que não colide com os seletores de
+`sessao.js` (`form[action*='/enviada']` não bate com `/editar`; o
+guard de Enter já cobre `textarea` genericamente).
+
+### Achado real, corrigido antes do review: entidade HTML dentro de string Jinja
+
+Ao validar ao vivo, a coluna "No slate?" mostrou o texto literal
+`n&atilde;o` em vez de "não" - hábito do formato antigo (entidades HTML,
+abandonado no redesign visual anterior) reintroduzido sem querer nesta
+sessão. Causa: `{{ 'sim' if pick.no_slate else 'n&atilde;o' }}` é uma
+string Jinja contendo os caracteres literais `&atilde;` - o autoescape
+do console escapa o `&` da própria string ANTES de imprimir, então o
+navegador nunca decodifica a entidade. Diferente de uma entidade escrita
+fora de `{{ }}` (HTML puro no template, decodificada normalmente pelo
+navegador) - essas continuam corretas em outros lugares do projeto (ex.:
+`&nbsp;` em `saude.html`/`envio_sessao.html`, convenção mantida de
+propósito). Corrigido trocando pra caractere UTF-8 literal ("não"),
+mesmo padrão do resto do arquivo; três outras entidades remanescentes
+na mesma seção nova (fora de `{{ }}`, funcionalmente corretas mas
+inconsistentes com o resto do arquivo) convertidas por consistência.
+
+### Revisão do `code-reviewer`: aprovado, 0 achados bloqueantes
+
+Confirmado sem duplicação de linha em `picks_do_dia` (todos os joins são
+1:1 a partir de `picks`), sem risco de condição de corrida na edição
+(gate atômico no UPDATE, mesmo padrão já validado), sem colisão com
+`sessao.js`, sem vetor de XSS (autoescape ligado, `<pre>`/`<textarea>`
+escapam o conteúdo, link do WhatsApp já passa por `quote()`). Duas notas
+LOW aceitas sem ação: não há trilha de auditoria distinguindo "regerado
+por mudança de template" de "editado manualmente pelo operador" (sem
+requisito de compliance hoje), e faltava um teste de `modo=sessao` pro
+endpoint novo — adicionado por consistência com os testes equivalentes
+de `marcar_enviada`/`pular`.
+
+Suíte em **1020 testes** (1012 + 8 novos: 2 pra `picks_do_dia`, 6 pra
+`/envio/{id}/editar` incluindo os 2 de `modo=sessao` acrescentados após
+o review). Validado ao vivo contra o console real: "Todos os palpites do
+dia" mostrando 5 picks reais com status variados (`sem_odd`/
+`vinculado`) e indicador "no slate?" correto após o fix do encoding.

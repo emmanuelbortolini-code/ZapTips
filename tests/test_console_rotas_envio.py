@@ -101,6 +101,69 @@ def test_post_marcar_enviada_sem_origem_recusada():
     assert cur.queries == []
 
 
+def test_post_editar_corpo_sucesso():
+    cur = FakeCursor(fetchone_results=[("msg-1",)])
+    app.dependency_overrides[get_conexao] = lambda: FakeConnection(cur)
+
+    resposta = client.post("/envio/msg-1/editar", data={"corpo": "texto ajustado pelo operador"}, headers=_ORIGEM)
+
+    assert resposta.status_code == 303
+    sql, params = cur.queries[0]
+    assert "status = 'pronta'" in sql
+    assert params == ("texto ajustado pelo operador", "msg-1")
+
+
+def test_post_editar_corpo_vazio_recusado():
+    cur = FakeCursor()
+    app.dependency_overrides[get_conexao] = lambda: FakeConnection(cur)
+
+    resposta = client.post("/envio/msg-1/editar", data={"corpo": "   "}, headers=_ORIGEM)
+
+    assert resposta.status_code == 400
+    assert cur.queries == []
+
+
+def test_post_editar_corpo_mensagem_nao_pronta_409():
+    cur = FakeCursor(fetchone_results=[None])
+    app.dependency_overrides[get_conexao] = lambda: FakeConnection(cur)
+
+    resposta = client.post("/envio/msg-1/editar", data={"corpo": "texto novo"}, headers=_ORIGEM)
+
+    assert resposta.status_code == 409
+
+
+def test_post_editar_corpo_sem_origem_recusada():
+    cur = FakeCursor()
+    app.dependency_overrides[get_conexao] = lambda: FakeConnection(cur)
+
+    resposta = client.post("/envio/msg-1/editar", data={"corpo": "texto novo"})
+
+    assert resposta.status_code == 403
+    assert cur.queries == []
+
+
+def test_post_editar_corpo_modo_sessao_redireciona_pra_envio_sessao():
+    cur = FakeCursor(fetchone_results=[None, ("msg-1",)])  # buscar_sessao_aberta (sem sessao), regerar_corpos
+    app.dependency_overrides[get_conexao] = lambda: FakeConnection(cur)
+
+    resposta = client.post("/envio/msg-1/editar", data={"corpo": "texto novo", "modo": "sessao"}, headers=_ORIGEM)
+
+    assert resposta.status_code == 303
+    assert resposta.headers["location"] == "/envio/sessao"
+
+
+def test_post_editar_corpo_modo_sessao_com_sessao_pausada_recusada():
+    sessao_pausada = ("sessao-1", None, "slate-1", "pausada", None, None, None, None)
+    cur = FakeCursor(fetchone_results=[sessao_pausada])
+    app.dependency_overrides[get_conexao] = lambda: FakeConnection(cur)
+
+    resposta = client.post("/envio/msg-1/editar", data={"corpo": "texto novo", "modo": "sessao"}, headers=_ORIGEM)
+
+    assert resposta.status_code == 409
+    # regerar_corpos nunca chegou a executar - so a consulta de sessao aberta rodou
+    assert len(cur.queries) == 1
+
+
 def test_post_pular_exige_motivo():
     cur = FakeCursor()
     app.dependency_overrides[get_conexao] = lambda: FakeConnection(cur)

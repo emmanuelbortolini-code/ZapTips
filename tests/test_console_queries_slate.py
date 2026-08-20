@@ -3,6 +3,7 @@ from datetime import date, datetime, timezone
 from app.console.queries import (
     FixturaElegivel,
     ItemSlate,
+    PickDoDia,
     buscar_slate_atual,
     buscar_status_slate,
     carregar_itens_slate,
@@ -10,6 +11,7 @@ from app.console.queries import (
     excluidos_do_dia,
     existe_pick_quarentena_no_slate,
     fixturas_elegiveis_do_dia,
+    picks_do_dia,
 )
 from tests._fakes import FakeCursor
 
@@ -62,6 +64,43 @@ def test_carregar_itens_slate_mapeia_colunas():
             kickoff_utc=kickoff, odd_citada=1.85, casa_citada="Bet365",
             odd_referencia=1.90, odd_referencia_origem="oddspapi", odd_minima=1.82,
             tipster="TipsterX", fonte_nome="Sites de Apostas",
+        ),
+    )
+
+
+def test_picks_do_dia_filtra_fonte_em_quarentena_e_janela_24h():
+    cur = FakeCursor(fetchall_results=[[]])
+
+    picks_do_dia(cur)
+
+    sql = cur.queries[0][0]
+    assert "quarentena is not true" in sql
+    assert "interval '24 hours'" in sql
+
+
+def test_picks_do_dia_mapeia_colunas_incluindo_status_e_no_slate():
+    kickoff = datetime(2026, 8, 20, 22, 30, tzinfo=timezone.utc)
+    cur = FakeCursor(
+        fetchall_results=[
+            [
+                (
+                    "pick-1", "fix-1", "1x2", "Athletic vence", "vinculado",
+                    "Athletic", "CRB", kickoff,
+                    None, None, 2.40, "manual", 2.30,
+                    "console_manual", "console", True,
+                )
+            ]
+        ]
+    )
+
+    picks = picks_do_dia(cur)
+
+    assert picks == (
+        PickDoDia(
+            pick_id="pick-1", fixture_id="fix-1", mercado="1x2", selecao="Athletic vence", status="vinculado",
+            time_casa="Athletic", time_fora="CRB", kickoff_utc=kickoff,
+            odd_citada=None, casa_citada=None, odd_referencia=2.40, odd_referencia_origem="manual", odd_minima=2.30,
+            fonte_nome="console_manual", tipster="console", no_slate=True,
         ),
     )
 

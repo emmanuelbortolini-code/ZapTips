@@ -379,7 +379,11 @@ def encerrar_sessao(cur: psycopg.Cursor, sessao_id: str, encerrada_por: str, mot
 def regerar_corpos(cur: psycopg.Cursor, novos_corpos: dict[str, str]) -> int:
     # D12 (Fase 5d): botao "regerar mensagem" da spec, pra quando o
     # template mudar - so toca 'pronta' (mensagem ja 'enviada'/'pulada'
-    # nunca muda retroativamente).
+    # nunca muda retroativamente). Reaproveitada tambem pela edicao manual
+    # de texto em /envio (pedido do PM) - e a mesma operacao de banco
+    # (sobrescrever corpo_renderizado de uma mensagem ainda 'pronta'),
+    # so muda quem decide o novo texto (o template vs. o operador
+    # digitando). Chamada com um dict de 1 item nesse caso.
     atualizadas = 0
     for message_id, corpo in novos_corpos.items():
         cur.execute(

@@ -11,6 +11,41 @@
     <p class="aviso">Este rascunho é uma correção - substitui o slate <code>{{ substitui_slate_id }}</code> já aprovado.</p>
   {% endif %}
 
+  <h2>Todos os palpites do dia <small>(próximas 24h, {{ picks_dia | length }})</small></h2>
+  {% if not picks_dia %}
+    <p class="estado-vazio">Nenhum palpite ligado a uma partida nas próximas 24h.</p>
+  {% else %}
+    <table style="margin-bottom: var(--space-6);">
+      <thead>
+        <tr>
+          <th>Partida</th><th>Kickoff</th><th>Mercado / Seleção</th>
+          <th>Status</th><th>No slate?</th><th>Odd ref.</th><th>Fonte / Tipster</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for pick in picks_dia %}
+        <tr>
+          <td>{{ pick.time_casa }} x {{ pick.time_fora }}</td>
+          <td class="num">{{ pick.kickoff_local.strftime("%d/%m %H:%M") }}</td>
+          <td>{{ pick.mercado }} — {{ pick.selecao }}</td>
+          <td>
+            <span class="badge badge-{{ {
+              'vinculado': 'ok', 'sem_odd': 'degradado', 'revisao_manual': 'degradado',
+              'descartado': 'falhou', 'extraido': 'pendente',
+            }.get(pick.status, 'pendente') }}">{{ pick.status }}</span>
+          </td>
+          <td>{{ 'sim' if pick.no_slate else 'não' }}</td>
+          <td class="num">
+            {% if pick.odd_referencia is none %}-{% else %}{{ pick.odd_referencia }} <small>({{ pick.odd_referencia_origem or "manual" }})</small>{% endif %}
+          </td>
+          <td>{{ pick.fonte_nome }}<br><small>{{ pick.tipster or "-" }}</small></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  {% endif %}
+
+  <h2>Rascunho de hoje</h2>
   {% if not itens %}
     <p class="estado-vazio">Nenhum item no rascunho de hoje.</p>
   {% else %}

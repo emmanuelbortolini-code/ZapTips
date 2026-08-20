@@ -37,6 +37,7 @@ from app.console.queries import (
     excluidos_do_dia,
     existe_pick_quarentena_no_slate,
     fixturas_elegiveis_do_dia,
+    picks_do_dia,
 )
 from app.console.rules import Bloqueio, avaliar_acesso_curadoria, bloqueios_de_aprovacao, tem_alerta_divergencia
 from app.pipeline import FUSO_OPERACIONAL, data_operacional
@@ -72,6 +73,10 @@ def _item_para_exibicao(item: ItemSlate, limite_divergencia_pct: float) -> dict:
     }
 
 
+def _pick_do_dia_para_exibicao(pick) -> dict:
+    return {**pick.__dict__, "kickoff_local": pick.kickoff_utc.astimezone(FUSO_OPERACIONAL)}
+
+
 @router.get("/curadoria")
 def ver_curadoria(
     request: Request,
@@ -86,13 +91,14 @@ def ver_curadoria(
 
     settings = get_settings()
     fixturas_elegiveis = fixturas_elegiveis_do_dia(cur)
+    picks_dia = [_pick_do_dia_para_exibicao(pick) for pick in picks_do_dia(cur)]
 
     slate_row = buscar_slate_atual(cur, data_operacional())
     if slate_row is None:
         contexto = {
             "acesso": acesso, "itens": [], "conflitos": {}, "excluidos": [],
             "slate_id": None, "slate_status": None, "substitui_slate_id": None, "bloqueios": (),
-            "fixturas_elegiveis": fixturas_elegiveis,
+            "fixturas_elegiveis": fixturas_elegiveis, "picks_dia": picks_dia,
         }
         return templates.TemplateResponse(request, "curadoria.html", contexto)
 
@@ -111,6 +117,7 @@ def ver_curadoria(
         "substitui_slate_id": substitui_slate_id,
         "bloqueios": bloqueios_de_aprovacao(itens, conflitos, settings.odd_minima_absoluta),
         "fixturas_elegiveis": fixturas_elegiveis,
+        "picks_dia": picks_dia,
     }
     return templates.TemplateResponse(request, "curadoria.html", contexto)
 
