@@ -1,0 +1,29 @@
+name: Coleta de resultados + liquidação
+
+# A cada 30min, sempre - independe do slate/pipeline diário (mesmo
+# raciocínio de scripts/agendador.py::_coleta_resultados/_liquidacao,
+# que rodam soltos, não dentro do run_pipeline). O GitHub Actions não
+# garante o disparo exatamente no minuto (pode atrasar alguns minutos em
+# horário de pico da infraestrutura deles) - aceitável pra este job,
+# mesma tolerância que collect_results.py já tem (fecha fixture só 2h
+# depois do kickoff).
+on:
+  schedule:
+    - cron: "*/30 * * * *"
+  workflow_dispatch: {}
+
+jobs:
+  rodar:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v3
+        with:
+          python-version: "3.11"
+      - run: uv sync
+      - run: uv run python -m scripts.collect_results
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      - run: uv run python -m scripts.liquidar_picks
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}

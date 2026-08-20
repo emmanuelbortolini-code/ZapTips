@@ -1,0 +1,22 @@
+name: Resumo semanal
+
+# Segunda 05h em America/Sao_Paulo = segunda 08h UTC (sem virada de dia,
+# 05h+3h=08h no mesmo dia). Cobre a semana que acabou de fechar
+# (segunda-domingo) - ver app.pipeline.segunda_da_semana_anterior.
+on:
+  schedule:
+    - cron: "0 8 * * 1"
+  workflow_dispatch: {}
+
+jobs:
+  rodar:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v3
+        with:
+          python-version: "3.11"
+      - run: uv sync
+      - run: uv run python -m scripts.gerar_resumo_semanal
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}

@@ -3337,3 +3337,80 @@ caso, ou com a desambiguação por janela de kickoff que o documento
 original sempre citou como trabalho futuro.
 
 Suíte em **1046 testes** (1044 + 2 novos).
+
+## Agendador fora do computador local (GitHub Actions): concluído
+
+Pedido do PM: "tem como rodar fora do meu computador?" — o pipeline
+diário, coleta/liquidação, fechamento diário e backup (Fase 7,
+`scripts/agendador.py`) só rodavam enquanto o PC do PM ficasse ligado
+e com o processo `agendador.py` ativo. Escopo confirmado com o PM antes
+de mexer: só o **scheduler**, não o console (que fica local mesmo,
+sem autenticação, decisão já fechada desde a Fase 5); hospedagem
+gratuita como primeira opção.
+
+**Decisão:** GitHub Actions com `schedule:` (cron), não um serviço
+gerenciado (Render/Railway/etc.) — o repositório já existe no GitHub
+(`emmanuelbortolini-code/ZapTips`), Actions é gratuito no tier usado
+por este projeto (repositório com uso pessoal, bem abaixo do limite de
+minutos/mês), e cada job já é um script Python de execução curta e
+idempotente (`scripts.run_pipeline`, `scripts.collect_results` etc.) —
+exatamente o formato que um runner efêmero por execução atende bem,
+sem precisar de um processo de longa duração.
+
+5 workflows criados em `.github/workflows/`, cada um espelhando um job
+de `scripts/agendador.py` (comentário no topo de cada arquivo linka o
+job correspondente):
+
+- **`pipeline-diario.yml`** — cron `0 9 * * *` (06h BRT = 09h UTC,
+  Brasil não observa horário de verão desde 2019), roda
+  `scripts.run_pipeline`. Precisa de `DATABASE_URL` e
+  `ODDSPAPI_API_KEY`.
+- **`coleta-liquidacao.yml`** — cron `*/30 * * * *`, roda
+  `scripts.collect_results` → `scripts.liquidar_picks` em sequência,
+  independente do pipeline diário (mesmo desenho de
+  `scripts/agendador.py`, que também roda esses dois soltos). Só
+  precisa de `DATABASE_URL`.
+- **`fechamento-diario.yml`** — cron `0 2 * * *` (23h BRT = 02h UTC do
+  dia seguinte), roda `build_master_ledger` → `build_bets` →
+  `gerar_fechamentos` → `gerar_pagina_publica` em sequência (cada etapa
+  depende da anterior estar fresca). `public/` sobe como artifact do
+  Actions (retenção 7 dias) — publicar/hospedar a página continua
+  manual, artifact só substitui o arquivo que ficaria em disco local.
+- **`backup-diario.yml`** — cron `0 7 * * *` (04h BRT = 07h UTC),
+  instala `postgresql-client` via `apt` (pro `pg_dump` existir no
+  runner) e roda `scripts.backup`; `backups/` sobe como artifact
+  (retenção 90 dias).
+- **`resumo-semanal.yml`** — cron `0 8 * * 1` (segunda 05h BRT = 08h
+  UTC, mesmo dia — 05h+3h não vira o dia), roda
+  `scripts.gerar_resumo_semanal`.
+
+Todos os 5 seguem o mesmo padrão de steps (`actions/checkout@v4` →
+`astral-sh/setup-uv@v3` com `python-version: "3.11"` → `uv sync` → o(s)
+script(s) do job, com env vindo de `secrets.*`) e ganharam
+`workflow_dispatch: {}` — permite disparo manual pela aba Actions do
+GitHub, pra validar cada workflow de ponta a ponta antes de confiar só
+no cron.
+
+**Settings sem secret dedicado:** `ANTHROPIC_API_KEY` não é secret
+porque não é necessária — a etapa `extracao` do pipeline degrada por
+design (decisão permanente de 2026-08-13, sem crédito de API). Todo o
+resto de `app/config.py` usa os defaults já documentados em
+`.env.example`, sem precisar de override nos workflows.
+
+`scripts/agendador.py` não foi removido nem alterado — continua
+correto e disponível pra quem quiser rodar local/manual (ex.: debug),
+só deixa de ser o caminho que garante execução em produção.
+
+### Pendência real, não fechada nesta sessão
+
+Os workflows não foram validados contra uma execução real ainda — isso
+exige que o PM adicione os secrets no GitHub primeiro (só ele tem
+acesso ao `Settings` do repositório): `Settings` → `Secrets and
+variables` → `Actions` → `New repository secret`, criar `DATABASE_URL`
+(connection string do Supabase, a mesma do `.env` local) e
+`ODDSPAPI_API_KEY` (a mesma chave gratuita já em uso). Depois disso,
+recomendado disparar cada workflow manualmente uma vez
+(`Actions` → workflow → `Run workflow`) antes de deixar só o cron
+rodando sozinho — mesma disciplina de validação ao vivo já seguida no
+resto do projeto, mas que só o PM pode executar (exige acesso ao painel
+do GitHub que esta sessão não tem).

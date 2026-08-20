@@ -1,0 +1,26 @@
+name: Pipeline diário
+
+# 06h em America/Sao_Paulo (UTC-3, sem horário de verão desde 2019) =
+# 09h UTC. Substitui o job "pipeline_diario" de scripts/agendador.py -
+# ver docs/HISTORICO.md "Agendador fora do computador local (GitHub
+# Actions)" pro motivo de existir os dois (agendador.py continua valendo
+# pra rodar local/manual, este workflow é quem garante execução mesmo
+# com o PC do operador desligado).
+on:
+  schedule:
+    - cron: "0 9 * * *"
+  workflow_dispatch: {}
+
+jobs:
+  rodar:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v3
+        with:
+          python-version: "3.11"
+      - run: uv sync
+      - run: uv run python -m scripts.run_pipeline
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          ODDSPAPI_API_KEY: ${{ secrets.ODDSPAPI_API_KEY }}

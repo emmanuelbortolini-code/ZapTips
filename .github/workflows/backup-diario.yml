@@ -1,0 +1,32 @@
+name: Backup diário do Postgres
+
+# 04h em America/Sao_Paulo = 07h UTC. scripts/backup.py já extrai a
+# senha da DATABASE_URL e passa via PGPASSWORD (nunca em argv) - ver
+# CLAUDE.md/HISTORICO.md, achado do code-reviewer na Fase 7. O dump sai
+# em backups/ (ignorado pelo git, mesmo tratamento local) - aqui vira
+# artifact do Actions em vez de arquivo no disco do operador.
+on:
+  schedule:
+    - cron: "0 7 * * *"
+  workflow_dispatch: {}
+
+jobs:
+  rodar:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v3
+        with:
+          python-version: "3.11"
+      - run: uv sync
+      - name: instalar pg_dump
+        run: sudo apt-get update && sudo apt-get install -y postgresql-client
+      - run: uv run python -m scripts.backup
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: backup-postgres
+          path: backups/
+          retention-days: 90
+          if-no-files-found: warn

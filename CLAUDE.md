@@ -85,8 +85,14 @@ precisa de URL-encoding. `.env` não é versionado.
 
 ## Ambiente de execução
 
-Roda só na máquina local do PM, sem servidor. Console sem autenticação,
-scheduler via APScheduler em processo único (`scripts/agendador.py`).
+Console roda só na máquina local do PM, sem servidor, sem autenticação —
+isso não mudou. O **scheduler** deixou de depender do PC do PM ficar ligado
+(2026-08-20): os 5 jobs recorrentes (pipeline diário, coleta+liquidação a
+cada 30min, fechamento diário, backup, resumo semanal) rodam via GitHub
+Actions cron (`.github/workflows/*.yml`), usando os secrets `DATABASE_URL`
+e `ODDSPAPI_API_KEY` do repositório. `scripts/agendador.py` (APScheduler,
+processo único) continua existindo e funcional pra rodar local/manual, mas
+não é mais o caminho de produção.
 
 ## Decisões de negócio vigentes
 
@@ -196,8 +202,15 @@ fase — detalhe completo em [`docs/HISTORICO.md`](docs/HISTORICO.md):
    console mostra essas métricas ainda.
 9. Uso auxiliar do `/settlements` do OddsPapi (conferência amostral de
    liquidação) — não implementado.
-10. Agendador nunca rodou um dia inteiro em produção — só validado
-    localmente (start/stop, registro dos jobs).
+10. ~~Agendador nunca rodou um dia inteiro em produção~~ — resolvido em
+    2026-08-20 de um jeito diferente do planejado: em vez de validar
+    `scripts/agendador.py` rodando 24h na máquina local do PM, os 5 jobs
+    foram movidos pra `.github/workflows/*.yml` (GitHub Actions, cron),
+    que roda sem depender do PC do PM estar ligado. `scripts/agendador.py`
+    continua existindo pra uso local/manual, mas deixa de ser o caminho de
+    produção. Falta o PM adicionar os secrets `DATABASE_URL`/
+    `ODDSPAPI_API_KEY` no GitHub e validar a primeira execução real de
+    cada workflow (`workflow_dispatch` manual antes de confiar no cron).
 11. ~~Matcher recusava "Grêmio Novorizontino SP"~~ — resolvido em
     2026-08-20: `app.matcher.match_team_name` agora prioriza um match
     exato de UM time sobre empate com fuzzy de OUTRO time (antes os dois

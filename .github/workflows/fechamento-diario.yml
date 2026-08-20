@@ -1,0 +1,38 @@
+name: Fechamento diário
+
+# 23h em America/Sao_Paulo = 02h UTC do dia seguinte. Mesma ordem de
+# scripts/agendador.py::_fechamento_diario: master_ledger -> bets ->
+# fechamentos -> página pública (cada um depende do anterior estar
+# fresco, nunca em paralelo).
+on:
+  schedule:
+    - cron: "0 2 * * *"
+  workflow_dispatch: {}
+
+jobs:
+  rodar:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v3
+        with:
+          python-version: "3.11"
+      - run: uv sync
+      - run: uv run python -m scripts.build_master_ledger
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      - run: uv run python -m scripts.build_bets
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      - run: uv run python -m scripts.gerar_fechamentos
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      - run: uv run python -m scripts.gerar_pagina_publica
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: pagina-publica
+          path: public/
+          retention-days: 7
+          if-no-files-found: ignore
