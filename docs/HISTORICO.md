@@ -2501,6 +2501,100 @@ consistente com o padrão já estabelecido, `expirando_2h` corretamente
 preservado, testes corretos e idiomáticos. Suíte em **987 testes** (985
 + 2 novos).
 
+## Nível 3 da hierarquia de odds — bloco nativo da ESPN: concluído
+
+Pendência explícita desde a Fase 1g/4 ("adapter ainda não existe").
+Antes de implementar, investiguei ao vivo o payload real da ESPN (não
+confiei na descrição em prosa da Fase 1a, que só documentava a
+*presença* do bloco de odds, nunca seu formato) — sonda rápida contra
+`/scoreboard` e `/summary` de 7 ligas (bra.1, bra.2, eng.1, esp.1,
+uefa.champions, ita.1, ger.1) em 2026-08-20. Dois achados reais que
+mudam a implementação em relação ao que a documentação original
+implicitamente supunha:
+
+1. **Formato é odds americanas (moneyline)**, não decimais — ex.
+   `"homeTeamOdds": {"moneyLine": -240}`. Precisa de conversão
+   (`1 + moneyline/100` se positivo, `1 + 100/|moneyline|` se negativo)
+   antes de qualquer comparação com o piso do produto.
+2. **Nas 7 ligas testadas ao vivo, o único provider observado foi a
+   DraftKings** — casa americana, não licenciada no Brasil, portanto
+   nunca elegível pro nível 3. A sonda original da Fase 1a (2026-08-10,
+   temporada anterior) tinha visto Bet365 em parte da amostra, mas isso
+   não se reproduziu na amostra de hoje.
+
+Antes de implementar de qualquer jeito, esse achado foi levado ao PM
+(pergunta explícita: "vale construir sabendo que provavelmente não vai
+resolver nada na prática hoje?"). Decisão: **sim, construir mesmo
+assim** — custo baixo, cobre o caso raro em que uma casa licenciada
+aparecer, e o fallback é seguro por design (nunca acha casa licenciada
+= `None`, nunca chuta).
+
+### O que foi construído
+
+`app/espn_odds.py` (novo): `normalizar_nome_casa` (remove espaço/case —
+o payload real usa `"Bet 365"` com espaço, `casas.nome` está cadastrado
+como `"Bet365"` sem espaço, e `casas.aliases` está vazio — pendência
+conhecida — então normalizar é o único jeito de bater os dois sem
+depender de alias populado), `_moneyline_para_decimal` (`Decimal` com
+`ROUND_HALF_UP`, 3 casas — mesma precisão de `picks.odd_referencia
+numeric(6,3)`, mesma cautela contra ruído binário já usada em
+`calcular_odd_minima`), `extrair_odds_licenciadas` (filtra só casas
+licenciadas, tolera entrada malformada sem quebrar as demais, nunca usa
+`hasOdds` do payload — não confiável, achado original da Fase 1a,
+reconfirmado na sonda de hoje: veio `False` com o array `odds` de fato
+preenchido).
+
+`app/odds_resolution.py`: `resolver_odd_espn(pick, payload_summary,
+casas_licenciadas_normalizadas)` — só tenta pra mercado `1x2`, reusa
+`normalizar_selecao_1x2` (mesma restrição do nível 2, nunca chuta
+dupla-chance/seleção ambígua), usa o **mínimo** entre as casas
+licenciadas encontradas (mesmo raciocínio conservador do nível 2 — "o
+produto promete um piso, não uma cotação"). `OrigemOdd` ganhou o
+literal `"espn"` (`slate_picks.odd_referencia_origem` já tinha esse
+valor no `CHECK` desde a migration 0018/Fase 5c, antecipando esta
+implementação; `picks.odd_referencia_origem` nunca teve `CHECK`, então
+não precisou de migration nova).
+
+`scripts/resolve_odds.py`: reestruturado em 3 fases — leitura sem rede
+(níveis 1/2, como já era) → rede só pras fixtures cujos picks realmente
+precisam do nível 3 (`picks_candidatos_a_espn`, que replica a mesma
+checagem de `resolver_odd_espn` pra não gastar uma chamada de rede num
+pick que nunca poderia usar o resultado) → escrita sem rede. Mesmo
+padrão de 3 fases já usado em `collect_results.py` (1 req/s,
+`RATE_LIMIT_SECONDS`, falha numa fixture não derruba as demais).
+`aplicar_resolucao` ganhou parâmetro opcional `odd_espn` (default
+`None`, preserva 100% de compatibilidade com chamadas/testes antigos);
+a prioridade é sempre `resolver_odd_referencia(...) or odd_espn` —
+níveis 1/2 vencem sobre nível 3 quando ambos resolvem.
+
+### Revisão do `code-reviewer`: 1 MEDIUM real, corrigido
+
+`extrair_odds_licenciadas` quebrava com `AttributeError` se um item da
+lista `odds` viesse `None` explícito (não só um campo interno nulo) —
+mesma classe de bug já corrigida duas vezes no projeto
+(`espn_fixtures.py`/`espn_summary.py`, Fase 1e/1f: `"venue": null`,
+`"statistics": null` derrubando o parsing inteiro de um evento). Os
+testes de entrada malformada existentes cobriam `provider: None`,
+`homeTeamOdds: None` e `moneyLine` não numérico, mas nunca um item nulo
+na própria lista. Corrigido com `isinstance(entrada, dict)` no topo do
+loop, guarda que já é padrão no resto do projeto pra esse tipo de
+payload sem contrato de estabilidade. Teste de regressão adicionado.
+
+Todo o resto do review veio limpo: conversão moneyline↔decimal
+verificada contra valores conhecidos (-110 → 1.909, +100 → 2.0),
+prioridade nível 1/2 sobre nível 3 confirmada e testada, exclusão de
+odd de origem manual (achado da Fase 4, "Rodada de extração assistida")
+confirmada intacta, fase de rede corretamente escopada só aos
+candidatos do nível 3, nenhuma regressão nos níveis 1/2 existentes.
+
+Suíte em **1008 testes** (987 + 21 novos entre `test_espn_odds.py`,
+extensões de `test_odds_resolution.py` e `test_resolve_odds.py`).
+Nenhuma validação contra o Postgres real nesta entrada — a mudança
+depende de picks reais com mercado `1x2` ainda não resolvidos por
+nível 1/2 e de uma fixture cujo bloco de odds da ESPN traga casa
+licenciada, cenário raro no volume atual (ver achado #2 acima); vale
+revisitar quando/​se isso ocorrer de verdade em produção.
+
 ## Checklist manual do modo sessão (pendência da Fase 5d): concluído, com achado real corrigido
 
 Pendência explícita desde a Fase 5d ("o checklist interativo de

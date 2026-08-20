@@ -2,6 +2,7 @@ from app.odds_resolution import (
     PickParaResolverOdds,
     calcular_odd_minima,
     normalizar_selecao_1x2,
+    resolver_odd_espn,
     resolver_odd_referencia,
 )
 
@@ -125,5 +126,50 @@ def test_resolver_odd_referencia_sem_nenhum_nivel_disponivel():
     pick = _pick(mercado="1x2", selecao="1X")  # dupla chance, nao resolve nivel 2
 
     resultado = resolver_odd_referencia(pick, casas_licenciadas=set(), odds_por_fixture_mercado_selecao={})
+
+    assert resultado is None
+
+
+def test_resolver_odd_espn_usa_o_minimo_entre_casas_licenciadas():
+    pick = _pick(mercado="1x2", selecao="Home win")
+    payload = {
+        "odds": [
+            {"provider": {"name": "Bet365"}, "homeTeamOdds": {"moneyLine": -200}},  # 1.500
+            {"provider": {"name": "Betano"}, "homeTeamOdds": {"moneyLine": -150}},  # 1.667
+            {"provider": {"name": "DraftKings"}, "homeTeamOdds": {"moneyLine": -300}},  # nao licenciada
+        ]
+    }
+
+    resultado = resolver_odd_espn(pick, payload, casas_licenciadas_normalizadas={"bet365", "betano"})
+
+    assert resultado.valor == 1.5
+    assert resultado.origem == "espn"
+
+
+def test_resolver_odd_espn_mercado_fora_do_1x2_nunca_tenta():
+    pick = _pick(mercado="over_under", selecao="Under 2.5")
+    payload = {"odds": [{"provider": {"name": "Bet365"}, "homeTeamOdds": {"moneyLine": -200}}]}
+
+    resultado = resolver_odd_espn(pick, payload, casas_licenciadas_normalizadas={"bet365"})
+
+    assert resultado is None
+
+
+def test_resolver_odd_espn_selecao_ambigua_nao_chuta():
+    # "1X" (dupla chance) - mesma restricao do nivel 2, nunca resolve.
+    pick = _pick(mercado="1x2", selecao="1X")
+    payload = {"odds": [{"provider": {"name": "Bet365"}, "homeTeamOdds": {"moneyLine": -200}}]}
+
+    resultado = resolver_odd_espn(pick, payload, casas_licenciadas_normalizadas={"bet365"})
+
+    assert resultado is None
+
+
+def test_resolver_odd_espn_sem_casa_licenciada_no_payload():
+    # Caso comum na sonda ao vivo de hoje: so' DraftKings, nunca licenciada.
+    pick = _pick(mercado="1x2", selecao="Home win")
+    payload = {"odds": [{"provider": {"name": "DraftKings"}, "homeTeamOdds": {"moneyLine": -240}}]}
+
+    resultado = resolver_odd_espn(pick, payload, casas_licenciadas_normalizadas={"bet365", "betano", "superbet"})
 
     assert resultado is None

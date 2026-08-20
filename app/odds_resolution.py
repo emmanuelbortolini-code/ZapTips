@@ -12,10 +12,17 @@ Hierarquia implementada (ver CLAUDE.md, Fase 1b, "Hierarquia de origens"):
    dela, o assinante nao aposta, porque o retorno nao paga o risco" -
    documento original), entao a referencia mais conservadora entre as
    casas rastreadas e a que sustenta essa promessa sem exagerar.
-3. ESPN (bloco nativo de odds) - **fora de escopo aqui**, adapter ainda
-   nao existe (ver CLAUDE.md, Proximos passos).
-4. Manual (curadoria no console) - **fora de escopo aqui**, depende do
-   console da Fase 5, que ainda nao existe.
+3. **ESPN** (`app.espn_odds`, bloco nativo `odds`/`pickcenter` do
+   `/summary`) - so mercado `1x2`, mesma restricao de selecao do nivel 2
+   (`normalizar_selecao_1x2`). Formato real e' odds americanas
+   (moneyline), convertidas pra decimal em `app.espn_odds`. Usa o
+   **minimo** entre as casas licenciadas que aparecerem (mesmo raciocinio
+   de piso conservador do nivel 2) - na pratica, sonda ao vivo desta
+   sessao (2026-08-20, 7 ligas) so encontrou a DraftKings, nao licenciada,
+   entao esse nivel raramente resolve algo hoje; existe pro caso raro em
+   que uma casa licenciada aparecer.
+4. Manual (curadoria no console) - **fora de escopo aqui**, resolvido
+   direto por `app.console.acoes.criar_palpite_manual` (Fase 5d).
 
 Nivel 2 so resolve seleçoes de resultado simples (casa/empate/fora) -
 "1X"/"X2"/"12" (dupla chance) nao mapeiam pra uma unica linha de
@@ -32,9 +39,10 @@ from dataclasses import dataclass
 from decimal import ROUND_DOWN, Decimal
 from typing import Literal
 
+from app.espn_odds import extrair_odds_licenciadas
 from app.matcher import normalize_team_name
 
-OrigemOdd = Literal["fonte", "oddspapi"]
+OrigemOdd = Literal["fonte", "oddspapi", "espn"]
 Selecao1x2 = Literal["casa", "empate", "fora"]
 
 _EMPATE_LITERAIS = {"empate", "draw", "x"}
@@ -114,6 +122,31 @@ def resolver_odd_referencia(
                 return OddReferenciaEncontrada(valor=min(valores), origem="oddspapi")
 
     return None
+
+
+def resolver_odd_espn(
+    pick: PickParaResolverOdds,
+    payload_summary: dict,
+    casas_licenciadas_normalizadas: set[str],
+) -> OddReferenciaEncontrada | None:
+    """Nivel 3 - ver docstring do modulo e app.espn_odds. So tenta
+    resolver quando o mercado e' `1x2` e a selecao normaliza pra
+    casa/fora/empate (mesma restricao do nivel 2) - chamar isto sem essa
+    checagem previa desperdicaria uma chamada de rede (feita pelo
+    chamador, `scripts/resolve_odds.py`) pra um pick que nunca poderia
+    usar o resultado mesmo com o payload em maos."""
+    if pick.mercado != "1x2":
+        return None
+
+    selecao_normalizada = normalizar_selecao_1x2(pick.selecao, pick.time_casa, pick.time_fora)
+    if selecao_normalizada is None:
+        return None
+
+    encontradas = extrair_odds_licenciadas(payload_summary, selecao_normalizada, casas_licenciadas_normalizadas)
+    if not encontradas:
+        return None
+
+    return OddReferenciaEncontrada(valor=min(e.valor for e in encontradas), origem="espn")
 
 
 def calcular_odd_minima(odd_referencia: float, margem_pct: float, odd_minima_absoluta: float) -> float:

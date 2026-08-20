@@ -97,8 +97,9 @@ scheduler via APScheduler em processo único (`scripts/agendador.py`).
 - User-Agent do coletor ESPN: default do `httpx` (qualquer UA identificável
   ou com "Mozilla" leva a 403).
 - Hierarquia de odds: 1) fonte cita casa licenciada → 2) OddsPapi (bet365/
-  betano/superbet, só mercado 1x2) → 3) bloco nativo da ESPN (**não
-  implementado**) → 4) manual via console.
+  betano/superbet, só mercado 1x2) → 3) bloco nativo da ESPN (`app/espn_odds.py`,
+  só mercado 1x2, odds americanas convertidas pra decimal — casa licenciada
+  raramente aparece no bloco hoje, ver Estado do projeto) → 4) manual via console.
 - **Não haverá créditos de API da Anthropic** (decisão permanente,
   2026-08-13, restrição de orçamento). `scripts/extract_picks.py` continua
   correto mas não roda contra a API real — a etapa `extracao` do pipeline
@@ -123,8 +124,9 @@ fase — detalhe completo em [`docs/HISTORICO.md`](docs/HISTORICO.md):
 - **Fase 3** — Extração estruturada de picks (schema + prompt validados
   20/20 numa amostra manual; ~1076 picks extraídos ao todo até agora). Ver
   decisão sobre créditos de API acima.
-- **Fase 4** — Vínculo pick↔fixture, resolução de odds/piso, motor de
-  montagem do slate, template de mensagem.
+- **Fase 4** — Vínculo pick↔fixture, resolução de odds/piso (níveis 1–3
+  da hierarquia, incluindo `app/espn_odds.py`), motor de montagem do
+  slate, template de mensagem.
 - **Fase 5 (a–d)** — Orquestrador de pipeline com resume, CLI de
   assinantes/opt-in/opt-out (LGPD), console FastAPI (`/saude`,
   `/curadoria`, `/envio` com modo manual e modo sessão guiada).
@@ -144,24 +146,24 @@ fase — detalhe completo em [`docs/HISTORICO.md`](docs/HISTORICO.md):
    continua manual — o script só gera o artefato local, nunca sobe sozinho.
 2. `pg_dump` não instalado na máquina do PM — `scripts/backup.py` falha
    graciosamente até isso ser resolvido.
-3. Nível 3 da hierarquia de odds (bloco nativo da ESPN) — adapter não existe.
-4. Detecção de conflito em `app/slate.py` só normaliza seleção pro mercado
+3. Detecção de conflito em `app/slate.py` só normaliza seleção pro mercado
    1x2; `over_under`/`ambas_marcam`/`handicap` comparam texto bruto.
-5. Parser de "cartões, condição por time" — só o marcador existe, falta
+4. Parser de "cartões, condição por time" — só o marcador existe, falta
    texto real pra validar o parser completo.
-6. Alerta de 15% de picks não-liquidáveis por fonte — não existe canal de
+5. Alerta de 15% de picks não-liquidáveis por fonte — não existe canal de
    alerta no projeto ainda.
-7. `casas.aliases` vazio (sem urgência — resolução de `casa_id` já é 100%
-   sem alias).
-8. Contagem de picks pendentes de revisão manual (`nao_liquidavel`) não
+6. `casas.aliases` vazio (sem urgência — resolução de `casa_id` já é 100%
+   sem alias; `app/espn_odds.py` contorna isso normalizando nome, não
+   dependendo de alias).
+7. Contagem de picks pendentes de revisão manual (`nao_liquidavel`) não
    aparece no console `/saude` — só via `scripts/liquidacao.py listar`.
-9. `scripts/relatorio.py` (usuário/fontes) só tem CLI — nenhuma rota do
+8. `scripts/relatorio.py` (usuário/fontes) só tem CLI — nenhuma rota do
    console mostra essas métricas ainda.
-10. Uso auxiliar do `/settlements` do OddsPapi (conferência amostral de
-    liquidação) — não implementado.
-11. Agendador nunca rodou um dia inteiro em produção — só validado
+9. Uso auxiliar do `/settlements` do OddsPapi (conferência amostral de
+   liquidação) — não implementado.
+10. Agendador nunca rodou um dia inteiro em produção — só validado
     localmente (start/stop, registro dos jobs).
-13. Volume real ainda baixo pra validar conflito de picks/limite diário do
+11. Volume real ainda baixo pra validar conflito de picks/limite diário do
     slate com dado de produção de verdade.
 
 Para o "porquê" de qualquer decisão acima, ou o relato completo de uma
