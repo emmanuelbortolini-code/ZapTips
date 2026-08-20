@@ -3,13 +3,14 @@ from datetime import datetime, timezone
 import httpx
 
 from app.matcher import TeamAlias
-from app.oddspapi import OddsPapiFixtureOdds
+from app.oddspapi import OddSelecao, OddsPapiFixtureExtra, OddsPapiFixtureOdds
 from scripts.collect_odds import (
     _erro_sem_segredo,
     carregar_fixtures_por_times,
     carregar_team_aliases,
     filtrar_aliases_relevantes,
     processar_odds,
+    processar_odds_extras,
     registrar_chamada_api,
     resolver_participante,
     upsert_casa,
@@ -243,6 +244,62 @@ def test_processar_odds_home_away_trocado_nao_grava_mas_nao_derruba():
 
     assert gravadas == 0
     assert nao_casadas == 3
+    assert cur.queries == []
+
+
+def test_processar_odds_extras_grava_mercado_selecao_e_linha_de_cada_odd():
+    odds = [
+        OddsPapiFixtureExtra(
+            oddspapi_fixture_id="1", tournament_id=325, start_time=_KICKOFF,
+            participant1_id="1961", participant2_id="1963", bookmaker="bet365",
+            odds=(
+                OddSelecao(mercado="ambas_marcam", selecao="sim", linha=None, valor=1.83),
+                OddSelecao(mercado="ambas_marcam", selecao="nao", linha=None, valor=1.83),
+                OddSelecao(mercado="over_under", selecao="over", linha=2.5, valor=2.35),
+                OddSelecao(mercado="over_under", selecao="under", linha=2.5, valor=1.57),
+            ),
+        ),
+    ]
+    cur = FakeCursor()
+    aliases = [
+        TeamAlias(team_id="time-fluminense", alias_normalizado="fluminense"),
+        TeamAlias(team_id="time-palmeiras", alias_normalizado="palmeiras"),
+    ]
+    participantes = {"1961": "Fluminense", "1963": "Palmeiras"}
+    fixtures_por_times = {("bra.1", "time-fluminense", "time-palmeiras"): "fixture-1"}
+    liga_by_tournament_id = {"325": "bra.1"}
+
+    gravadas, nao_casadas = processar_odds_extras(
+        cur, odds, liga_by_tournament_id, fixtures_por_times, participantes, aliases, casa_id="casa-1"
+    )
+
+    assert gravadas == 4
+    assert nao_casadas == 0
+    assert len(cur.queries) == 4
+    mercados_gravados = {(q[1][2], q[1][3], q[1][4]) for q in cur.queries}  # (mercado, selecao, linha)
+    assert mercados_gravados == {
+        ("ambas_marcam", "sim", None), ("ambas_marcam", "nao", None),
+        ("over_under", "over", 2.5), ("over_under", "under", 2.5),
+    }
+
+
+def test_processar_odds_extras_time_sem_match_conta_como_nao_casada():
+    odds = [
+        OddsPapiFixtureExtra(
+            oddspapi_fixture_id="1", tournament_id=325, start_time=_KICKOFF,
+            participant1_id="1961", participant2_id="1963", bookmaker="bet365",
+            odds=(OddSelecao(mercado="ambas_marcam", selecao="sim", linha=None, valor=1.83),),
+        ),
+    ]
+    cur = FakeCursor()
+
+    gravadas, nao_casadas = processar_odds_extras(
+        cur, odds, liga_by_tournament_id={"325": "bra.1"}, fixtures_por_times={},
+        participantes={}, aliases=[], casa_id="casa-1",
+    )
+
+    assert gravadas == 0
+    assert nao_casadas == 1
     assert cur.queries == []
 
 

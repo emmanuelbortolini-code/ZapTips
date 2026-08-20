@@ -36,10 +36,12 @@ from app.db import get_connection
 from app.matcher import TeamAlias, match_team_name, normalize_team_name
 from app.oddspapi import (
     COOLDOWN_SECONDS,
+    OddsPapiFixtureExtra,
     OddsPapiFixtureOdds,
     fetch_odds_by_tournaments,
     fetch_participants,
     parse_odds_by_tournaments_response,
+    parse_odds_extras_by_tournaments_response,
 )
 from app.pipeline import ResultadoEtapa
 
@@ -179,6 +181,37 @@ def resolver_participante(participant_id: str, participantes: dict[str, str], al
     return resultado.team_id
 
 
+def _resolver_fixture_id(
+    tournament_id: int,
+    participant1_id: str,
+    participant2_id: str,
+    oddspapi_fixture_id: str,
+    bookmaker: str,
+    liga_by_tournament_id: dict[str, str],
+    fixtures_por_times: dict[tuple[str, str, str], str | None],
+    participantes: dict[str, str],
+    aliases: list[TeamAlias],
+) -> str | None:
+    liga = liga_by_tournament_id.get(str(tournament_id))
+    home_team_id = resolver_participante(participant1_id, participantes, aliases) if liga else None
+    away_team_id = resolver_participante(participant2_id, participantes, aliases) if liga else None
+
+    if not (liga and home_team_id and away_team_id):
+        return None
+
+    fixture_id = fixtures_por_times.get((liga, home_team_id, away_team_id))
+    if fixture_id is None and fixtures_por_times.get((liga, away_team_id, home_team_id)) is not None:
+        # participant1Id="mandante" e uma suposicao validada com 1
+        # exemplo real, nao um campo explicito da API. Se o inverso bate,
+        # o pressuposto quebrou pra este torneio ou casa - sinaliza alto e
+        # alto em vez de gravar a odd trocada (casa/fora invertidos seria
+        # pior que nao gravar).
+        log.warning(
+            "participant1_pode_nao_ser_mandante", liga=liga, oddspapi_fixture_id=oddspapi_fixture_id, bookmaker=bookmaker,
+        )
+    return fixture_id
+
+
 def processar_odds(
     cur: psycopg.Cursor,
     odds: list[OddsPapiFixtureOdds],
@@ -191,32 +224,48 @@ def processar_odds(
     gravadas = 0
     nao_casadas = 0
     for odd in odds:
-        liga = liga_by_tournament_id.get(str(odd.tournament_id))
-        home_team_id = resolver_participante(odd.participant1_id, participantes, aliases) if liga else None
-        away_team_id = resolver_participante(odd.participant2_id, participantes, aliases) if liga else None
-
-        fixture_id = None
-        if liga and home_team_id and away_team_id:
-            fixture_id = fixtures_por_times.get((liga, home_team_id, away_team_id))
-            if fixture_id is None and fixtures_por_times.get((liga, away_team_id, home_team_id)) is not None:
-                # participant1Id="mandante" e uma suposicao validada com 1
-                # exemplo real, nao um campo explicito da API. Se o
-                # inverso bate, o pressuposto quebrou pra este torneio ou
-                # casa - sinaliza alto e alto em vez de gravar a odd
-                # trocada (casa/fora invertidos seria pior que nao gravar).
-                log.warning(
-                    "participant1_pode_nao_ser_mandante",
-                    liga=liga,
-                    oddspapi_fixture_id=odd.oddspapi_fixture_id,
-                    bookmaker=odd.bookmaker,
-                )
-
+        fixture_id = _resolver_fixture_id(
+            odd.tournament_id, odd.participant1_id, odd.participant2_id, odd.oddspapi_fixture_id, odd.bookmaker,
+            liga_by_tournament_id, fixtures_por_times, participantes, aliases,
+        )
         if fixture_id is None:
             nao_casadas += len(odd.precos)
             continue
 
         for selecao, valor in odd.precos.items():
             upsert_odds_referencia(cur, fixture_id, casa_id, "1x2", selecao, None, valor)
+            gravadas += 1
+
+    return gravadas, nao_casadas
+
+
+def processar_odds_extras(
+    cur: psycopg.Cursor,
+    odds: list[OddsPapiFixtureExtra],
+    liga_by_tournament_id: dict[str, str],
+    fixtures_por_times: dict[tuple[str, str, str], str | None],
+    participantes: dict[str, str],
+    aliases: list[TeamAlias],
+    casa_id: str,
+) -> tuple[int, int]:
+    # Mesma logica de casamento de fixture de processar_odds (extraida
+    # pra _resolver_fixture_id pra nao duplicar) - so muda o formato do
+    # dado gravado: cada OddSelecao ja carrega mercado/selecao/linha
+    # proprios (ambas_marcam/over_under), enquanto o 1x2 sempre grava
+    # linha=None e mercado fixo.
+    gravadas = 0
+    nao_casadas = 0
+    for odd in odds:
+        fixture_id = _resolver_fixture_id(
+            odd.tournament_id, odd.participant1_id, odd.participant2_id, odd.oddspapi_fixture_id, odd.bookmaker,
+            liga_by_tournament_id, fixtures_por_times, participantes, aliases,
+        )
+        if fixture_id is None:
+            nao_casadas += len(odd.odds)
+            continue
+
+        for sel in odd.odds:
+            upsert_odds_referencia(cur, fixture_id, casa_id, sel.mercado, sel.selecao, sel.linha, sel.valor)
             gravadas += 1
 
     return gravadas, nao_casadas
@@ -249,6 +298,7 @@ def executar() -> ResultadoEtapa:
     # provedor). Por isso o registro em api_quota cobre bookmakers_tentados
     # inteiro, nao so os que tiveram sucesso - e tambem cobre /participants.
     odds_por_casa: dict[str, list[OddsPapiFixtureOdds]] = {}
+    odds_extras_por_casa: dict[str, list[OddsPapiFixtureExtra]] = {}
     bookmakers_tentados: list[str] = []
     bookmakers_falhos: list[str] = []
     participantes: dict[str, str] = {}
@@ -287,6 +337,15 @@ def executar() -> ResultadoEtapa:
             if ignoradas:
                 log.warning("fixtures_ignoradas_no_parsing", bookmaker=slug, quantidade=ignoradas)
             odds_por_casa[slug] = odds
+
+            # Mesmo payload ja buscado acima (nenhuma chamada de rede
+            # extra, nenhuma cota adicional) - so extrai mais mercados
+            # (ambas_marcam/over_under) que ja vinham na resposta e o
+            # projeto so usava parcialmente ate aqui (Fase 1g, so 1x2).
+            odds_extras, ignoradas_extras = parse_odds_extras_by_tournaments_response(payload, slug)
+            if ignoradas_extras:
+                log.warning("fixtures_extras_ignoradas_no_parsing", bookmaker=slug, quantidade=ignoradas_extras)
+            odds_extras_por_casa[slug] = odds_extras
             time.sleep(COOLDOWN_SECONDS)
 
     gravadas_total = 0
@@ -296,13 +355,18 @@ def executar() -> ResultadoEtapa:
             registrar_chamada_api(cur, "oddspapi", QUOTA_LIMITE_MENSAL)  # /participants
             for slug in bookmakers_tentados:
                 odds = odds_por_casa.get(slug, [])
+                odds_extras = odds_extras_por_casa.get(slug, [])
                 if participants_ok:
                     gravadas, nao_casadas = processar_odds(
                         cur, odds, liga_by_tournament_id, fixtures_por_times, participantes, aliases,
                         casa_id_by_slug[slug],
                     )
-                    gravadas_total += gravadas
-                    nao_casadas_total += nao_casadas
+                    gravadas_extras, nao_casadas_extras = processar_odds_extras(
+                        cur, odds_extras, liga_by_tournament_id, fixtures_por_times, participantes, aliases,
+                        casa_id_by_slug[slug],
+                    )
+                    gravadas_total += gravadas + gravadas_extras
+                    nao_casadas_total += nao_casadas + nao_casadas_extras
                 registrar_chamada_api(cur, "oddspapi", QUOTA_LIMITE_MENSAL)
         conn.commit()
 

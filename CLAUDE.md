@@ -97,7 +97,9 @@ scheduler via APScheduler em processo único (`scripts/agendador.py`).
 - User-Agent do coletor ESPN: default do `httpx` (qualquer UA identificável
   ou com "Mozilla" leva a 403).
 - Hierarquia de odds: 1) fonte cita casa licenciada → 2) OddsPapi (bet365/
-  betano/superbet, só mercado 1x2) → 3) bloco nativo da ESPN (`app/espn_odds.py`,
+  betano/superbet — `1x2`, `ambas_marcam` e `over_under`, ampliado em
+  2026-08-20; mesmo payload de `/odds-by-tournaments` já buscado, sem
+  custo extra de cota) → 3) bloco nativo da ESPN (`app/espn_odds.py`,
   só mercado 1x2, odds americanas convertidas pra decimal — casa licenciada
   raramente aparece no bloco hoje, ver Estado do projeto) → 4) manual via console.
 - **Não haverá créditos de API da Anthropic** (decisão permanente,

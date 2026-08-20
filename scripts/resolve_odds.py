@@ -80,11 +80,15 @@ def carregar_casas_licenciadas(cur: psycopg.Cursor) -> set[str]:
     return {str(row[0]) for row in cur.fetchall()}
 
 
-def carregar_odds_referencia(cur: psycopg.Cursor) -> dict[tuple[str, str, str], list[float]]:
-    cur.execute("select fixture_id, mercado, selecao, valor from odds_referencia")
-    odds: dict[tuple[str, str, str], list[float]] = {}
-    for fixture_id, mercado, selecao, valor in cur.fetchall():
-        odds.setdefault((str(fixture_id), mercado, selecao), []).append(float(valor))
+def carregar_odds_referencia(cur: psycopg.Cursor) -> dict[tuple[str, str, str, float | None], list[float]]:
+    # linha entra na chave desde 2026-08-20 (nivel 2 passou a cobrir
+    # over_under, que tem varias linhas por fixture/selecao - 1x2 e
+    # ambas_marcam sempre gravam linha=None, ver app.odds_resolution).
+    cur.execute("select fixture_id, mercado, selecao, linha, valor from odds_referencia")
+    odds: dict[tuple[str, str, str, float | None], list[float]] = {}
+    for fixture_id, mercado, selecao, linha, valor in cur.fetchall():
+        chave = (str(fixture_id), mercado, selecao, float(linha) if linha is not None else None)
+        odds.setdefault(chave, []).append(float(valor))
     return odds
 
 
@@ -106,7 +110,7 @@ def carregar_fixtures_espn(cur: psycopg.Cursor, fixture_ids: set[str]) -> dict[s
 def picks_candidatos_a_espn(
     pendentes: list[PickParaResolverOdds],
     casas_licenciadas: set[str],
-    odds_por_fixture: dict[tuple[str, str, str], list[float]],
+    odds_por_fixture: dict[tuple[str, str, str, float | None], list[float]],
 ) -> list[PickParaResolverOdds]:
     # So vale gastar uma chamada de rede pro nivel 3 quando os niveis 1/2
     # (dado ja em maos) nao resolveram E a selecao normaliza - a mesma
@@ -146,7 +150,7 @@ def aplicar_resolucao(
     cur: psycopg.Cursor,
     pick: PickParaResolverOdds,
     casas_licenciadas: set[str],
-    odds_por_fixture: dict[tuple[str, str, str], list[float]],
+    odds_por_fixture: dict[tuple[str, str, str, float | None], list[float]],
     margem_pct: float,
     odd_minima_absoluta: float,
     odd_espn: OddReferenciaEncontrada | None = None,

@@ -60,12 +60,23 @@ def test_carregar_casas_licenciadas_filtra_licenciada_br():
     assert "licenciada_br = true" in cur.queries[0][0]
 
 
-def test_carregar_odds_referencia_agrupa_por_chave():
-    cur = FakeCursor(fetchall_results=[[("fix-1", "1x2", "casa", 1.90), ("fix-1", "1x2", "casa", 1.75)]])
+def test_carregar_odds_referencia_agrupa_por_chave_incluindo_linha():
+    cur = FakeCursor(
+        fetchall_results=[
+            [
+                ("fix-1", "1x2", "casa", None, 1.90),
+                ("fix-1", "1x2", "casa", None, 1.75),
+                ("fix-1", "over_under", "under", 2.5, 1.60),
+            ]
+        ]
+    )
 
     odds = carregar_odds_referencia(cur)
 
-    assert odds == {("fix-1", "1x2", "casa"): [1.90, 1.75]}
+    assert odds == {
+        ("fix-1", "1x2", "casa", None): [1.90, 1.75],
+        ("fix-1", "over_under", "under", 2.5): [1.60],
+    }
 
 
 def test_aplicar_resolucao_sem_odd_marca_status_e_orfao():

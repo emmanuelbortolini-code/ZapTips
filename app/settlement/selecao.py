@@ -21,7 +21,7 @@ from dataclasses import dataclass
 from decimal import Decimal
 from typing import Literal
 
-from app.odds_resolution import Selecao1x2, normalizar_selecao_1x2
+from app.odds_resolution import Selecao1x2, fora_de_escopo, normalizar_selecao_1x2
 
 ParDuplaChance = Literal["1X", "X2", "12"]
 
@@ -69,7 +69,6 @@ def _decimal_pt_br(texto: str) -> Decimal:
 
 _MARCADORES_DNB = ("ganhar ou empatar", "dnb", "draw no bet", "empate anula")
 
-
 # Qualquer mencao a isso significa que a selecao NAO e sobre o resultado
 # do jogo inteiro (90min+acrescimos) - e escopo diferente (1o/2o tempo)
 # ou depende de mais que esta partida (agregado de mata-mata, penaltis).
@@ -77,12 +76,11 @@ _MARCADORES_DNB = ("ganhar ou empatar", "dnb", "draw no bet", "empate anula")
 # apareceram nos dados reais dentre 84 selecoes distintas de 1x2 - as
 # unicas duas que nao sao resultado direto do jogo. Resolver qualquer
 # uma delas contra o placar final da partida inteira estaria liquidando
-# um mercado diferente do que foi apostado.
-_ESCOPO_FORA_DO_JOGO_INTEIRO = ("tempo", "classific", "avanc", "agregad", "penalt", "prorrog")
-
-
-def _fora_de_escopo(selecao_normalizada: str) -> bool:
-    return any(termo in selecao_normalizada for termo in _ESCOPO_FORA_DO_JOGO_INTEIRO)
+# um mercado diferente do que foi apostado. Movida pra app.odds_resolution
+# em 2026-08-20 (`fora_de_escopo`) - o mesmo modulo ja e importado daqui
+# (normalizar_selecao_1x2) e agora tambem precisa da guarda pros
+# normalizadores de ambas_marcam/over_under (achado do code-reviewer).
+_fora_de_escopo = fora_de_escopo
 
 
 def parse_1x2_ou_variantes(

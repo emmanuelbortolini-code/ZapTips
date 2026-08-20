@@ -1,6 +1,12 @@
 from datetime import datetime, timezone
 
-from app.oddspapi import OddsPapiFixtureOdds, parse_odds_by_tournaments_response
+from app.oddspapi import (
+    OddsPapiFixtureExtra,
+    OddsPapiFixtureOdds,
+    OddSelecao,
+    parse_odds_by_tournaments_response,
+    parse_odds_extras_by_tournaments_response,
+)
 
 
 def _fixture(**overrides) -> dict:
@@ -179,6 +185,98 @@ def test_parse_todas_selecoes_invalidas_retorna_fixture_ignorado_silenciosamente
 
 def test_parse_lista_vazia_retorna_vazio():
     resultado, ignoradas = parse_odds_by_tournaments_response([], bookmaker="bet365")
+
+    assert resultado == []
+    assert ignoradas == 0
+
+
+def _fixture_extras(**overrides) -> dict:
+    base = {
+        "fixtureId": "id1000032566886918",
+        "tournamentId": 325,
+        "startTime": "2026-08-15T19:30:00.000Z",
+        "participant1Id": 1961,
+        "participant2Id": 1963,
+        "hasOdds": True,
+        "bookmakerOdds": {
+            "bet365": {
+                "markets": {
+                    "104": {  # BTTS
+                        "marketActive": True,
+                        "outcomes": {
+                            "104": {"players": {"0": {"price": 1.83}}},
+                            "105": {"players": {"0": {"price": 1.83}}},
+                        },
+                    },
+                    "1010": {  # over/under 2.5 gols
+                        "marketActive": True,
+                        "outcomes": {
+                            "1010": {"players": {"0": {"price": 2.35}}},
+                            "1011": {"players": {"0": {"price": 1.57}}},
+                        },
+                    },
+                },
+            }
+        },
+    }
+    base.update(overrides)
+    return base
+
+
+def test_parse_extras_extrai_btts_e_over_under():
+    payload = [_fixture_extras()]
+
+    resultado, ignoradas = parse_odds_extras_by_tournaments_response(payload, bookmaker="bet365")
+
+    assert ignoradas == 0
+    assert len(resultado) == 1
+    odds = set(resultado[0].odds)
+    assert OddSelecao(mercado="ambas_marcam", selecao="sim", linha=None, valor=1.83) in odds
+    assert OddSelecao(mercado="ambas_marcam", selecao="nao", linha=None, valor=1.83) in odds
+    assert OddSelecao(mercado="over_under", selecao="over", linha=2.5, valor=2.35) in odds
+    assert OddSelecao(mercado="over_under", selecao="under", linha=2.5, valor=1.57) in odds
+
+
+def test_parse_extras_ignora_fixture_sem_hasOdds():
+    payload = [_fixture_extras(hasOdds=False)]
+
+    resultado, ignoradas = parse_odds_extras_by_tournaments_response(payload, bookmaker="bet365")
+
+    assert resultado == []
+    assert ignoradas == 0
+
+
+def test_parse_extras_sem_nenhum_mercado_conhecido_devolve_none():
+    payload = [_fixture_extras(bookmakerOdds={"bet365": {"markets": {}}})]
+
+    resultado, ignoradas = parse_odds_extras_by_tournaments_response(payload, bookmaker="bet365")
+
+    assert resultado == []
+    assert ignoradas == 0
+
+
+def test_parse_extras_mercado_inativo_e_ignorado_mas_outros_seguem():
+    payload = [_fixture_extras()]
+    payload[0]["bookmakerOdds"]["bet365"]["markets"]["104"]["marketActive"] = False
+
+    resultado, ignoradas = parse_odds_extras_by_tournaments_response(payload, bookmaker="bet365")
+
+    assert ignoradas == 0
+    mercados = {o.mercado for o in resultado[0].odds}
+    assert mercados == {"over_under"}  # BTTS inativo, over_under continua
+
+
+def test_parse_extras_fixture_sem_participantes_vira_ignorada():
+    payload = [_fixture_extras(participant1Id=None)]
+
+    resultado, ignoradas = parse_odds_extras_by_tournaments_response(payload, bookmaker="bet365")
+
+    assert resultado == []
+    assert ignoradas == 1
+
+
+def test_parse_extras_lista_vazia_retorna_vazio():
+    resultado, ignoradas = parse_odds_extras_by_tournaments_response([], bookmaker="bet365")
 
     assert resultado == []
     assert ignoradas == 0

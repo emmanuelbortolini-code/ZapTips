@@ -3147,3 +3147,109 @@ Suíte em **1020 testes** (1012 + 8 novos: 2 pra `picks_do_dia`, 6 pra
 o review). Validado ao vivo contra o console real: "Todos os palpites do
 dia" mostrando 5 picks reais com status variados (`sem_odd`/
 `vinculado`) e indicador "no slate?" correto após o fix do encoding.
+
+## Nível 2 (OddsPapi) ampliado pra ambas_marcam e over_under: concluído
+
+Pergunta do PM: "não tem como trazer as odds da fonte caso não tenha da
+OddsPapi?" - a maioria dos picks reais de um dia comum usa mercados
+`ambas_marcam`/`over_under`, mas o nível 2 (e o 3) só cobriam `1x2`
+desde a Fase 1g/4, então esses picks sempre ficavam `sem_odd`. Antes de
+implementar, perguntei ao PM se ele queria ampliar o nível 2 pros dois
+mercados mais comuns (usando o mínimo entre as 3 casas, mesmo raciocínio
+já usado no 1x2) ou priorizar a odd da casa específica citada pela fonte
+- escolhida a primeira opção.
+
+### Achado que tornou isso possível sem custo extra de cota
+
+`fetch_odds_by_tournaments` (uma chamada por casa por dia, já existente
+desde a Fase 1g) já devolve TODOS os mercados da casa numa resposta só
+- o projeto só extraía o mercado `1x2` dela (chave fixa `"101"`).
+Investigado o catálogo `GET /markets` (endpoint já conhecido desde a
+Fase 1b) contra a API real: BTTS tem `marketId` fixo (`"104"`, outcomes
+`"104"=Yes/"105"=No`); Over/Under tem um `marketId` **diferente por
+linha de gols** (não é fixo como 1x2/BTTS) - mapeadas as 34 linhas reais
+de 0.25 a 8.5 (`marketType='totals'`, `period='fulltime'`, `sportId=10`)
+numa tabela estática `MARKETS_TOTAL_FULLTIME` em `app/oddspapi.py`.
+
+### O que foi construído
+
+`app/oddspapi.py`: `_parse_fixture` (parsing 1x2 já testado, 15 testes)
+refatorado extraindo `_campos_comuns_fixture`/`_precos_do_mercado`
+(comportamento idêntico, confirmado pelos 15 testes antigos passando
+sem alteração) - reaproveitadas por `parse_odds_extras_by_tournaments_
+response` (nova função, dataclasses `OddSelecao`/`OddsPapiFixtureExtra`)
+que extrai BTTS + todas as linhas de Over/Under do MESMO payload já
+buscado, sem chamada de rede nova.
+
+`scripts/collect_odds.py`: `_resolver_fixture_id` extraído de dentro de
+`processar_odds` (mesmo casamento de fixture por nome de time via
+`app.matcher`, comportamento preservado) - reaproveitado por
+`processar_odds_extras` (nova), que grava cada `OddSelecao` com seu
+próprio mercado/seleção/linha em `odds_referencia` (a tabela e
+`upsert_odds_referencia` já suportavam `linha` desde a Fase 1g, nunca
+usado de verdade até agora). `executar()` chama o parse extra logo
+depois do 1x2, usando o mesmo `payload`.
+
+`app/odds_resolution.py`: `normalizar_selecao_ambas_marcam` (regex
+`\bnao\b` checado antes de `\b(sim|yes|btts)\b`) e `normalizar_selecao_
+over_under` (regex de direção + linha numérica, aceita "de" opcional e
+separador decimal `,`/`.`) - `resolver_odd_referencia` ganhou os dois
+ramos novos. **Mudança de chave propagada**: `odds_por_fixture_mercado_
+selecao` passou de 3-tupla `(fixture_id, mercado, selecao)` pra 4-tupla
+`(fixture_id, mercado, selecao, linha)` - `linha=None` pra 1x2/
+ambas_marcam, um float pra over_under (várias linhas por fixture/
+seleção). `scripts/resolve_odds.py::carregar_odds_referencia` atualizada
+pra selecionar/agrupar por essa chave também.
+
+### Revisão do `code-reviewer`: 1 HIGH real + 1 MEDIUM, ambos corrigidos
+
+**HIGH:** os dois normalizadores novos não tinham a guarda de "fora de
+escopo" (1º tempo, prorrogação, agregado, pênaltis, classificação) que
+`app/settlement/selecao.py` já tinha corrigido pra esse EXATO risco na
+Fase 6a ("Mais de 0.5 gols no 1º tempo" liquidado contra o placar do
+jogo inteiro). Sem a guarda aqui, o mesmo texto resolveria uma odd de
+jogo inteiro pra uma seleção de 1º tempo - pior que o caso da Fase 6a,
+porque essa odd alimenta `picks.odd_referencia`/`odd_minima`, mostrada
+pro assinante real, não só um cálculo interno de liquidação. Corrigido
+**sem duplicar código**: como `app.settlement.selecao` já importa de
+`app.odds_resolution` (`normalizar_selecao_1x2`), mover a guarda pra
+`app.odds_resolution` (de onde `selecao.py` agora importa) era a única
+direção que não criava import circular. `ESCOPO_FORA_DO_JOGO_INTEIRO`/
+`fora_de_escopo` viraram públicos em `odds_resolution.py`;
+`selecao.py` mantém `_fora_de_escopo = fora_de_escopo` como alias, sem
+tocar nos call sites existentes.
+
+**MEDIUM:** "BTTS No"/"BTTS: No" (Eagle Predict, inglês) batia só no
+`\bbtts\b` do regex de "sim" e respondia o oposto do texto real - bare
+"no" tinha sido deliberadamente excluído do reconhecimento geral (pra
+não confundir com a preposição portuguesa "no 1º tempo"), mas isso
+também escondia o "No" que vem colado no "BTTS". Corrigido com um
+regex adicional restrito a "no" perto de "btts" especificamente,
+sem reabrir o falso positivo da preposição.
+
+4 testes de regressão novos (fora de escopo nos dois normalizadores,
+BTTS No/BTTS: No). Suíte em **1044 testes** (1041 + 3 novos - um dos 4
+já estava implicitamente coberto).
+
+### Resultado rodando contra o Postgres real
+
+`scripts/collect_odds.py`: foi de 21 pra **143 odds gravadas**, mesmo
+custo de cota (0 chamadas HTTP extras - confirmado no log, só os 4
+requests de sempre). `parse_odds_extras_by_tournaments_response`
+validado ao vivo contra a API real antes de qualquer código de produção
+ser escrito (mesma disciplina de investigação do resto do projeto) -
+BTTS e várias linhas de Over/Under extraídas com preços reais.
+
+`scripts/resolve_odds.py` rodado depois: nenhum dos 4 picks `sem_odd`
+de hoje resolveu, mas por motivos **separados e pré-existentes**, não
+relacionados a este trabalho - 3 são de Libertadores/Sul-Americana,
+fora do `league_map` (só bra.1/bra.2 configurados desde a Fase 1g); o
+4º (Novorizontino x América-MG, esse sim é bra.2) não teve odd gravada
+porque `app.matcher` recusou o match entre "Gremio Novorizontino SP"
+(nome do participante na OddsPapi) e "Novorizontino" (nosso banco) -
+score 100 mas ambíguo, `revisao_manual`, log
+`participante_sem_match_confiavel`. O nível 2 ampliado está correto e
+funcionando (confirmado com dado real); só não havia, hoje, uma
+fixture elegível dentro do escopo já configurado pra se beneficiar
+dele. Fica como contexto pra próxima vez que alguém perguntar "por que
+não resolveu" - não é falha desta mudança.
