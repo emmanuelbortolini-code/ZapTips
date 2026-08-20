@@ -3253,3 +3253,87 @@ funcionando (confirmado com dado real); só não havia, hoje, uma
 fixture elegível dentro do escopo já configurado pra se beneficiar
 dele. Fica como contexto pra próxima vez que alguém perguntar "por que
 não resolveu" - não é falha desta mudança.
+
+## Matcher: match exato passa a vencer empate com fuzzy de outro time
+
+Ao investigar por que o alias novo (migration 0028, ver seção acima)
+não resolvia o pick real "Novorizontino x América Mineiro" sozinho,
+achei uma limitação real no algoritmo central de `app/matcher.py`, não
+um problema de dado faltando. Perguntei ao PM antes de mexer num
+componente com esse alcance (usado por ESPN, OddsPapi, extração,
+vínculo de picks) - confirmado: corrigir.
+
+### O achado
+
+"Grêmio Novorizontino SP" (nome oficial completo do Novorizontino-SP,
+mesmo padrão de "Grêmio Foot-Ball Porto Alegrense" pro Grêmio gaúcho)
+batia **exato** (score 100) contra o alias novo do Novorizontino - mas
+**empatava** no mesmo teto de score com um match **fuzzy** de um time
+completamente diferente, "Grêmio" (RS): o alias curto "gremio" desse
+outro time é um subconjunto de token do nome completo, então
+`rapidfuzz.fuzz.token_set_ratio` também dá 100 ali. O algoritmo antigo
+tratava os dois tetos de score como empate entre times diferentes →
+sempre ia pra `revisao_manual`, mesmo com uma evidência muito mais
+forte (match exato) num dos dois lados.
+
+### A correção
+
+`match_team_name` agora separa os candidatos com match exato ANTES de
+calcular o "melhor score" geral:
+- Se só um `team_id` tem candidato exato, esse time vence direto
+  (`status="exato"`) - não compara mais com nenhum candidato fuzzy de
+  outro time, não importa a pontuação fuzzy deles.
+- Se **dois times diferentes** têm candidato exato (cenário real já
+  testado: "América-MG"/"América-RN", ambos normalizando pra
+  "america"), continua `revisao_manual` - nunca escolhe entre dois
+  exatos.
+- Sem nenhum candidato exato, cai no fluxo antigo (mesmo comportamento
+  de sempre).
+
+`migrations/0028_alias_gremio_novorizontino.sql`: insert idempotente
+(`on conflict (team_id, alias_normalizado) do nothing`) dos aliases
+"Grêmio Novorizontino"/"Grêmio Novorizontino SP" pro Novorizontino,
+aplicada contra o Postgres real.
+
+### Revisão do `code-reviewer`: aprovado, sem achados bloqueantes
+
+Confirmado que os dois callers reais (`scripts/collect_odds.py`,
+`app/pick_linking.py`) só checam `status == "revisao_manual"` vs. resto
+- nenhum dependia de distinguir `"exato"` de `"fuzzy"`, então promover
+um caso de `revisao_manual` pra `exato` não muda comportamento além do
+pretendido. 1 nota MEDIUM aceita como trade-off documentado, não bug:
+a nova regra só entra em jogo quando os scores empatam no teto (quase
+sempre 100, ou seja, um subconjunto de token completo) - se o lado
+fuzzy fosse na real o time certo e o exato uma coincidência de nome
+oficial, a nova lógica resolveria errado com confiança total em vez de
+mandar pra revisão manual. Aceito porque é consistente com a filosofia
+do projeto ("nunca chuta entre dois sinais de força igual" - um empate
+exato-vs-fuzzy deixou de ser tratado como força igual, o que é
+defensável). 2 testes novos (vitória do exato sobre empate fuzzy de
+outro time; dois exatos de times diferentes continuam ambíguos -
+regressão do caso América-MG/RN).
+
+### Resultado rodando contra o Postgres real
+
+`match_team_name('Gremio Novorizontino SP', ...)` confirmado
+resolvendo certo (`status='exato'`, antes `revisao_manual`).
+`scripts/collect_odds.py` rodado de novo: **169 odds gravadas** (era
+143 antes desta correção, +26), mesmo custo de cota - o aviso
+`participante_sem_match_confiavel` pra "Gremio Novorizontino SP" sumiu
+do log.
+
+**Efeito colateral honesto, documentado, não escondido:** mesmo com o
+matcher corrigido, o pick real "Novorizontino x América Mineiro" ainda
+não resolveu odd depois de rodar `resolve_odds.py` de novo (continua
+9 resolvidos, mesma contagem de antes) - motivo **diferente e já
+conhecido**: o time visitante, "América Mineiro", cai na mesma família
+de ambiguidade América-MG/América-RN já documentada desde a Fase 1c
+(confirmado testando `match_team_name('America Mineiro MG', ...)`
+diretamente contra os aliases reais - `revisao_manual`, score 100,
+dois times distintos cadastrados). Não é regressão desta correção, é
+uma limitação pré-existente e separada, que só se resolve com o mesmo
+tipo de alias manual específico (como fiz pro Novorizontino), caso a
+caso, ou com a desambiguação por janela de kickoff que o documento
+original sempre citou como trabalho futuro.
+
+Suíte em **1046 testes** (1044 + 2 novos).

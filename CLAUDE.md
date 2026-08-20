@@ -198,13 +198,22 @@ fase — detalhe completo em [`docs/HISTORICO.md`](docs/HISTORICO.md):
    liquidação) — não implementado.
 10. Agendador nunca rodou um dia inteiro em produção — só validado
     localmente (start/stop, registro dos jobs).
-11. Achado real (2026-08-20): `app.matcher` recusa "Grêmio Novorizontino
-    SP" (nome da OddsPapi) contra "Novorizontino" (nosso banco) — score
-    100 mas ambíguo, vira `revisao_manual`. Impede odd automática pra
-    esse time específico até alguém popular um alias manualmente.
-11. Volume real ainda baixo pra validar conflito de picks/limite diário do
+11. ~~Matcher recusava "Grêmio Novorizontino SP"~~ — resolvido em
+    2026-08-20: `app.matcher.match_team_name` agora prioriza um match
+    exato de UM time sobre empate com fuzzy de OUTRO time (antes os dois
+    empatavam no teto de score e sempre iam pra `revisao_manual`, mesmo
+    com um match exato em mãos). Dois times com alias exato idêntico
+    continuam corretamente ambíguos (América-MG/RN, não regrediu).
+    `migrations/0028` adiciona o alias que faltava.
+12. Família "América-MG/América-RN" (dois times distintos que colidem
+    depois de normalizar) continua sem resolução automática, por
+    design — inclui agora um caso real confirmado: "Novorizontino x
+    América Mineiro" não resolve odd porque "América Mineiro" cai
+    nessa mesma família. Só resolve com alias manual específico, caso a
+    caso, como fiz pro Novorizontino/Grêmio.
+13. Volume real ainda baixo pra validar conflito de picks/limite diário do
     slate com dado de produção de verdade.
-12. ~~`app/oddspapi.py::_parse_fixture` só reconhece mercado 1x2 sob uma
+14. ~~`app/oddspapi.py::_parse_fixture` só reconhece mercado 1x2 sob uma
     chave fixa~~ — investigação de 2026-08-20 estava **errada**: a
     chave `"101"` estava presente nas duas fixtures de Série B
     testadas, com preços reais, mas `marketActive: false` (bet365 **e**

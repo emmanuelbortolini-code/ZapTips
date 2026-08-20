@@ -82,22 +82,43 @@ def match_team_name(nome: str, aliases: Sequence[TeamAlias]) -> MatchResult:
         return MatchResult(team_id=None, alias_correspondente=None, score=0.0, status="revisao_manual")
 
     pontuados = [_pontuar(nome_normalizado, alias) for alias in aliases]
+
+    # Achado real (2026-08-20): "Gremio Novorizontino SP" batia exato
+    # contra o alias do Novorizontino (score 100) mas EMPATAVA com um
+    # match fuzzy do Grêmio-RS (alias curto "gremio", subconjunto de
+    # token do nome completo) - os dois no mesmo teto de score, times
+    # diferentes, virava revisao_manual mesmo com um match exato em
+    # maos. Um alias exato registrado pra um time e' evidencia mais
+    # forte que uma coincidencia fuzzy de OUTRO time no mesmo teto -
+    # checado ANTES do empate geral, mas so resolve quando existe UM SO
+    # time com alias exato (dois times com alias exato pro mesmo nome,
+    # ex. America-MG/America-RN normalizando pra "america", continuam
+    # genuinamente ambiguos - nunca chuta entre dois exatos).
+    exatos = [alias for alias, exato, _ in pontuados if exato]
+    if exatos:
+        times_exatos = {alias.team_id for alias in exatos}
+        if len(times_exatos) == 1:
+            vencedor = exatos[0]
+            return MatchResult(
+                team_id=vencedor.team_id, alias_correspondente=vencedor.alias_normalizado,
+                score=100.0, status="exato",
+            )
+        return MatchResult(team_id=None, alias_correspondente=None, score=100.0, status="revisao_manual")
+
+    # Chegou aqui: nenhum alias bateu exato (exatos vazio acima) - so
+    # sobra empate fuzzy entre aliases do mesmo time (nao ambiguo) ou
+    # ambiguidade real entre times diferentes.
     melhor_score = max(score for _, _, score in pontuados)
-    melhores = [(alias, exato) for alias, exato, score in pontuados if score == melhor_score]
-    times_distintos = {alias.team_id for alias, _ in melhores}
+    melhores = [alias for alias, _, score in pontuados if score == melhor_score]
+    times_distintos = {alias.team_id for alias in melhores}
 
     if melhor_score < THRESHOLD_FUZZY or len(times_distintos) > 1:
         return MatchResult(team_id=None, alias_correspondente=None, score=melhor_score, status="revisao_manual")
 
-    # Empate entre aliases do mesmo time (nao ambiguo, ja passou o check
-    # acima): prefere o alias exato, nao o primeiro na ordem em que o
-    # chamador passou a lista - a ordem de uma query no banco nao e garantida.
-    melhores.sort(key=lambda par: not par[1])
-    vencedor, vencedor_exato = melhores[0]
-    status: MatchStatus = "exato" if vencedor_exato else "fuzzy"
+    vencedor = melhores[0]
     return MatchResult(
         team_id=vencedor.team_id,
         alias_correspondente=vencedor.alias_normalizado,
         score=melhor_score,
-        status=status,
+        status="fuzzy",
     )

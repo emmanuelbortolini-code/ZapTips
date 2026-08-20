@@ -159,3 +159,39 @@ def test_match_ainda_aceita_exato_mesmo_com_alias_curto():
 
     assert resultado.status == "exato"
     assert resultado.team_id == "t1"
+
+
+def test_match_exato_vence_empate_com_fuzzy_de_outro_time():
+    # Achado real (2026-08-20): "Gremio Novorizontino SP" (nome oficial
+    # completo do Novorizontino-SP, participante real da OddsPapi) batia
+    # exato (100) contra o alias do Novorizontino, mas EMPATAVA no mesmo
+    # teto de score com um match fuzzy do Gremio-RS (alias curto "gremio",
+    # subconjunto de token do nome completo) - dois times diferentes no
+    # mesmo score maximo virava revisao_manual mesmo com um match exato
+    # em maos. Um alias exato de UM time so e' evidencia mais forte que
+    # uma coincidencia fuzzy de outro time no mesmo teto.
+    alias_exato_novorizontino = TeamAlias(team_id="novorizontino", alias_normalizado="gremio novorizontino sp")
+    alias_fuzzy_gremio_rs = TeamAlias(team_id="gremio-rs", alias_normalizado="gremio")
+
+    resultado = match_team_name("Gremio Novorizontino SP", [alias_exato_novorizontino, alias_fuzzy_gremio_rs])
+
+    assert resultado.status == "exato"
+    assert resultado.team_id == "novorizontino"
+    assert resultado.score == 100.0
+
+
+def test_match_dois_times_com_alias_exato_identico_continua_ambiguo():
+    # Diferente do caso acima: aqui os DOIS times tem alias EXATO pro
+    # mesmo nome normalizado - genuinamente ambiguo (mesmo cenario do
+    # America-MG/America-RN, so que via match exato em vez de fuzzy).
+    # Nunca chuta entre dois exatos.
+    aliases = [
+        TeamAlias(team_id="time-a", alias_normalizado="atletico"),
+        TeamAlias(team_id="time-b", alias_normalizado="atletico"),
+    ]
+
+    resultado = match_team_name("Atletico", aliases)
+
+    assert resultado.status == "revisao_manual"
+    assert resultado.team_id is None
+    assert resultado.score == 100.0
