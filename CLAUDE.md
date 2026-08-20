@@ -177,12 +177,17 @@ fase — detalhe completo em [`docs/HISTORICO.md`](docs/HISTORICO.md):
     localmente (start/stop, registro dos jobs).
 11. Volume real ainda baixo pra validar conflito de picks/limite diário do
     slate com dado de produção de verdade.
-12. `app/oddspapi.py::_parse_fixture` só reconhece mercado 1x2 sob a
-    chave `"101"` — achado real (2026-08-20): pelo menos duas fixtures
-    de Série B com `hasOdds: true` na bet365 usavam IDs de mercado
-    dinâmicos, não essa chave fixa, e ficaram sem odd (nível 2) mesmo
-    tendo dado real disponível. Não corrigido ainda — precisa de mais
-    amostra real antes de generalizar o parser.
+12. ~~`app/oddspapi.py::_parse_fixture` só reconhece mercado 1x2 sob uma
+    chave fixa~~ — investigação de 2026-08-20 estava **errada**: a
+    chave `"101"` estava presente nas duas fixtures de Série B
+    testadas, com preços reais, mas `marketActive: false` (bet365 **e**
+    betano, mesmas duas partidas) — mercado temporariamente suspenso,
+    não indisponível por falha de parsing. O parser recusa corretamente
+    (usar preço de mercado inativo violaria "piso publicado é sempre
+    apostável de verdade"). Não é bug, não precisa de correção. Hipótese
+    não testada: o mercado pode ativar mais perto do kickoff — revisitar
+    rodando `collect_odds.py` de novo poucas horas antes de uma partida
+    de Série B pra confirmar.
 
 Para o "porquê" de qualquer decisão acima, ou o relato completo de uma
 investigação (sondas, bugs de revisão de código, achados por fase), ver

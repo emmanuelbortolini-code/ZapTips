@@ -2626,12 +2626,27 @@ escopo dos níveis 2/3) — `sem_odd`, corretamente, não um bug.
 **Investigação ao vivo antes de qualquer atalho:** consultada a API da
 OddsPapi diretamente (não só via `collect_odds.py`) para as duas
 partidas de Série B de hoje à noite (Athletic x CRB, Novorizontino x
-América-MG) - `hasOdds: true` no payload bruto, mas o mercado 1x2 sob a
-chave `"101"` que `app.oddspapi._parse_fixture` espera não estava
-presente pra nenhuma das duas (bet365 usa IDs de mercado dinâmicos
-nessas duas fixtures específicas, não a chave fixa) — `resolve_odds.py`
-corretamente não achou nada, não é bug do parser (achado registrado,
-não corrigido - fora de escopo desta sessão).
+América-MG) - `hasOdds: true` no payload bruto, mas `resolve_odds.py`
+não achou odd 1x2 pra nenhuma das duas. **Correção de um diagnóstico
+errado feito nesta mesma sessão:** a primeira leitura (rápida, sem
+inspecionar o payload completo) concluiu que a chave de mercado `"101"`
+não estava presente e que a bet365 usava IDs dinâmicos — **isso estava
+errado**. Investigação mais cuidadosa (pedida pelo PM: "não sei o que
+falta", levou a revisitar esse item) mostrou que a chave `"101"` **está
+presente**, com preços reais (`2.35`/`3.20`/`3.00` pra Athletic x CRB,
+`1.53`/`3.80`/`6.25` pra Novorizontino x América-MG), só que com
+`"marketActive": false` — confirmado também na Betano pras mesmas duas
+partidas (Superbet não checado, rate-limit 429 no meio da investigação,
+`COOLDOWN_SECONDS` do provedor). O parser (`app.oddspapi._parse_fixture`,
+`if not mercado.get("marketActive", True): return None`) está correto:
+recusar um preço de mercado suspenso é a decisão certa - "piso
+publicado" só faz sentido se for algo que o assinante consiga de fato
+apostar agora. **Não é bug, não precisa de correção.** Hipótese não
+testada: o mercado pode ativar mais perto do kickoff (a suspensão
+observada foi ~7-8h antes do apito); vale revisitar rodando
+`collect_odds.py` de novo poucas horas antes de uma partida de Série B
+pra confirmar se isso é um padrão (mercados de ligas menores abrem
+tarde) ou coincidência do dia.
 
 ### Decisão: usar o palpite manual do console com odd real verificada
 
