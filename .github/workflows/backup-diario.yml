@@ -17,8 +17,17 @@ jobs:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v3
       - run: uv sync
-      - name: instalar pg_dump
-        run: sudo apt-get update && sudo apt-get install -y postgresql-client
+      - name: instalar pg_dump 17
+        # postgresql-client generico do apt do runner fica atras da
+        # versao do servidor (Supabase roda PG17, mesmo motivo documentado
+        # em CLAUDE.md pro ambiente local do PM) - pg_dump exige cliente
+        # >= servidor. Usa o repositorio oficial do PostgreSQL pra pegar a
+        # versao 17 exata, nao a que o Ubuntu empacota por padrao.
+        run: |
+          sudo sh -c 'echo "deb https://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" > /etc/apt/sources.list.d/pgdg.list'
+          curl -fsSL https://www.postgresql.org/media/keys/ACCC4CF8.asc | sudo gpg --dearmor -o /etc/apt/trusted.gpg.d/postgresql.gpg
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client-17
       - run: uv run python -m scripts.backup
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}

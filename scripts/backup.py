@@ -85,6 +85,8 @@ def main() -> int:
         print(f"Backup gravado: {resultado.detalhe['arquivo']} ({resultado.detalhe['tamanho_mb']} MB)")
         return 0
     print(f"Backup falhou: {resultado.detalhe.get('motivo')}")
+    if "stderr" in resultado.detalhe:
+        print(resultado.detalhe["stderr"])
     return 1
 
 
