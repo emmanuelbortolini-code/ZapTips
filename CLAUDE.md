@@ -246,7 +246,22 @@ fase — detalhe completo em [`docs/HISTORICO.md`](docs/HISTORICO.md):
    **usuário** (exige `--user-id`, sem seletor de assinante na UI) ficam
    de fora por decisão desta sessão — continuam só CLI.
 9. Uso auxiliar do `/settlements` do OddsPapi (conferência amostral de
-   liquidação) — não implementado.
+   liquidação) — parcialmente resolvido em 2026-08-25:
+   `app.oddspapi.fetch_settlements` existe e foi validado com chamada
+   real (consumiu 2 de cota) contra uma fixture bra.1 futura. Schema
+   real confirmado: `{"fixtureId": ..., "markets": {"101": {"outcomes":
+   {"101/102/103": {"players": {"0": {"result": "UNDECIDED"}}}}}}}` -
+   mercado/outcomes batem com `MARKET_1X2_ID`/`OUTCOME_1X2` já usados.
+   **Bloqueado além disso**: não existe hoje nenhuma fixture DECIDIDA
+   acessível (`fixtures.oddspapi_fixture_id` nunca foi persistido pelo
+   projeto; `/odds-by-tournaments` só devolve partidas futuras) pra
+   descobrir o vocabulário real de `result` quando o mercado fecha
+   (WON/LOST/algo mais - não documentado). Escrever esse parser e ligar
+   no fluxo de `liquidar_picks.py` fica pra quando existir um settlement
+   real pra validar contra (mesma cautela da pendência 4). Conferência
+   amostral semanal (a outra metade da pendência original) nem começou
+   - decisão desta sessão foi focar só na saída pra mercado sem
+   resolver, e essa ficou bloqueada por dado antes de sair do papel.
 10. ~~Agendador nunca rodou um dia inteiro em produção~~ — resolvido em
     2026-08-20 de um jeito diferente do planejado: em vez de validar
     `scripts/agendador.py` rodando 24h na máquina local do PM, os 5 jobs

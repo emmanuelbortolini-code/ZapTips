@@ -290,3 +290,37 @@ def fetch_participants(
     )
     resp.raise_for_status()
     return resp.json()
+
+
+def fetch_settlements(client: httpx.Client, base_url: str, api_key: str, fixture_id: str) -> dict:
+    """Uso auxiliar do documento original (secao 6a, "conferencia, nao
+    substituto") - nunca motor de liquidacao. Pendencia #9 do CLAUDE.md:
+    so a camada de fetch existe por enquanto, validada com chamada real
+    em 2026-08-25 contra uma fixture FUTURA (bra.1, tournamentId 325):
+
+        {"fixtureId": "...", "markets": {"101": {"outcomes": {
+            "101": {"players": {"0": {"result": "UNDECIDED"}}},
+            "102": {...}, "103": {...}
+        }}, ...}}
+
+    Mercado "101" e outcomes 101/102/103 batem com MARKET_1X2_ID/
+    OUTCOME_1X2 ja usados em parse_odds_by_tournaments_response - mas
+    nao existe hoje nenhuma fixture DECIDIDA acessivel (fixtures.
+    oddspapi_fixture_id nunca foi persistido pelo projeto, e /odds-by-
+    tournaments so devolve partidas futuras) pra descobrir o vocabulario
+    real de `result` quando o mercado fecha (WON/LOST/algo mais - nao
+    documentado em lugar nenhum). Escrever esse parser agora seria
+    adivinhar, a mesma classe de risco ja evitada pro resto do projeto
+    (ver app.settlement.selecao.eh_condicao_por_time). Fica para quando
+    existir um settlement real pra validar contra.
+
+    Chamador e responsavel por registrar a chamada em `api_quota`
+    (mesmo padrao de scripts/collect_odds.py::registrar_chamada_api) -
+    esta funcao so faz o fetch, sem efeito colateral de cota."""
+    resp = client.get(
+        f"{base_url}/settlements",
+        params={"apiKey": api_key, "fixtureId": fixture_id},
+        timeout=30,
+    )
+    resp.raise_for_status()
+    return resp.json()
