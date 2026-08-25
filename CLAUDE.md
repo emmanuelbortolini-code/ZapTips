@@ -203,7 +203,12 @@ fase — detalhe completo em [`docs/HISTORICO.md`](docs/HISTORICO.md):
    handicap também é só manual hoje), então não havia base pra construir
    um aqui especulativamente.
 4. Parser de "cartões, condição por time" — só o marcador existe, falta
-   texto real pra validar o parser completo.
+   texto real pra validar o parser completo. Reverificado em 2026-08-25:
+   `raw_picks` inteiro (todo texto bruto já coletado, extraído ou não)
+   tem só 1 menção a "cart..." na história do projeto, e é mercado
+   `total` (over/under), não condição-por-time — segue sem exemplo real
+   pra validar contra. Continua bloqueada até a fonte APWin (única citada
+   com esse mercado) existir, ou aparecer texto real em outra fonte.
 5. Alerta de 15% de picks não-liquidáveis por fonte — não existe canal de
    alerta no projeto ainda.
 6. `casas.aliases` vazio (sem urgência — resolução de `casa_id` já é 100%
