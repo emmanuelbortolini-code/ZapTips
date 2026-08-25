@@ -10,15 +10,17 @@ diferentes no mesmo mercado da mesma fixture. Resolvido por consenso
 (mais picks concordando na mesma selecao); empate manda a fixture+mercado
 inteira pra revisao manual, nunca decide sozinho.
 
-Agrupamento por selecao usa `app.odds_resolution.normalizar_selecao_1x2`
-quando o mercado e' `1x2` (achado do code-reviewer: duas fontes podem
-concordar no mesmo resultado com fraseado diferente - "Home win" vs
-"Vitória do Fluminense" - e comparar o texto bruto tratava isso como
-desacordo, diluindo o consenso real). Mercados fora de `1x2` ainda
-comparam texto bruto (nao existe normalizador equivalente pra
-over_under/ambas_marcam/handicap ainda - falta comparar tambem `linha`,
-que a extracao da Fase 3 nem populou; fica documentado como limitacao
-conhecida, nao resolvida especulativamente aqui).
+Agrupamento por selecao usa os normalizadores de `app.odds_resolution`
+por mercado - `normalizar_selecao_1x2`, `normalizar_selecao_over_under`
+(direcao+linha, parseada do proprio texto da selecao) e
+`normalizar_selecao_ambas_marcam` (achado do code-reviewer: duas fontes
+podem concordar no mesmo resultado com fraseado diferente - "Home win"
+vs "Vitória do Fluminense", "Under 2.5" vs "Menos de 2.5 gols" - e
+comparar o texto bruto tratava isso como desacordo, diluindo o consenso
+real). `handicap` ainda compara texto bruto: nao existe normalizador
+equivalente em `app.odds_resolution` (a resolucao de odds pra handicap
+tambem so' e' manual hoje, ver docstring la' - nao ha base pra construir
+um normalizador aqui especulativamente).
 
 Limite diario (`SLATE_MAX_PICKS`): quando sobra mais candidato do que
 cabe, corta pelos de menor `confianca_tipster` (confianca de extracao da
@@ -35,7 +37,11 @@ from datetime import date, datetime, time, timedelta, timezone
 from typing import Literal
 from zoneinfo import ZoneInfo
 
-from app.odds_resolution import normalizar_selecao_1x2
+from app.odds_resolution import (
+    normalizar_selecao_1x2,
+    normalizar_selecao_ambas_marcam,
+    normalizar_selecao_over_under,
+)
 
 DecisaoStatus = Literal["descartado", "revisao_manual"]
 
@@ -62,6 +68,15 @@ def chave_selecao(pick: PickParaSlate) -> str:
         normalizada = normalizar_selecao_1x2(pick.selecao, pick.time_casa, pick.time_fora)
         if normalizada is not None:
             return normalizada
+    elif pick.mercado == "over_under":
+        resultado = normalizar_selecao_over_under(pick.selecao)
+        if resultado is not None:
+            direcao, linha = resultado
+            return f"{direcao}:{linha}"
+    elif pick.mercado == "ambas_marcam":
+        normalizada_btts = normalizar_selecao_ambas_marcam(pick.selecao)
+        if normalizada_btts is not None:
+            return normalizada_btts
     return pick.selecao
 
 

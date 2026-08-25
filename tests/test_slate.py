@@ -79,6 +79,46 @@ def test_sem_conflito_quando_1x2_concorda_com_fraseado_diferente():
     assert decisoes == []
 
 
+def test_sem_conflito_quando_over_under_concorda_com_fraseado_diferente():
+    # Mesma linha e direcao, fraseado diferente ("Menos de 2.5 gols" vs
+    # "Under 2.5") - mesmo achado de normalizacao ja aplicado ao 1x2.
+    picks = [
+        _pick("p1", mercado="over_under", selecao="Menos de 2.5 gols"),
+        _pick("p2", mercado="over_under", selecao="Under 2.5"),
+    ]
+
+    sobreviventes, decisoes = detectar_e_resolver_conflitos(picks)
+
+    assert {p.pick_id for p in sobreviventes} == {"p1", "p2"}
+    assert decisoes == []
+
+
+def test_conflito_real_entre_linhas_diferentes_de_over_under():
+    # "Menos de 2.5" e "Mais de 3.5" sao linhas DIFERENTES - conflito de
+    # verdade, nao um falso desacordo de fraseado.
+    picks = [
+        _pick("p1", mercado="over_under", selecao="Menos de 2.5 gols"),
+        _pick("p2", mercado="over_under", selecao="Mais de 3.5 gols"),
+    ]
+
+    sobreviventes, decisoes = detectar_e_resolver_conflitos(picks)
+
+    assert sobreviventes == []
+    assert set(decisoes) == {("p1", "revisao_manual"), ("p2", "revisao_manual")}
+
+
+def test_sem_conflito_quando_ambas_marcam_concorda_com_fraseado_diferente():
+    picks = [
+        _pick("p1", mercado="ambas_marcam", selecao="Ambas marcam: sim"),
+        _pick("p2", mercado="ambas_marcam", selecao="BTTS Yes"),
+    ]
+
+    sobreviventes, decisoes = detectar_e_resolver_conflitos(picks)
+
+    assert {p.pick_id for p in sobreviventes} == {"p1", "p2"}
+    assert decisoes == []
+
+
 def test_montar_slate_aplica_limite_por_confianca_sem_mudar_status():
     picks = [
         _pick("p1", fixture_id="fix-1", confianca=0.95),

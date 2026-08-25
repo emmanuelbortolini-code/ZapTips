@@ -192,8 +192,16 @@ fase — detalhe completo em [`docs/HISTORICO.md`](docs/HISTORICO.md):
    real, dump gravado em `backups/`. Ação pendente pro PM: desativar o
    serviço manualmente se quiser liberar a porta/RAM (Serviços do
    Windows → `postgresql-x64-17` → parar + desabilitar).
-3. Detecção de conflito em `app/slate.py` só normaliza seleção pro mercado
-   1x2; `over_under`/`ambas_marcam`/`handicap` comparam texto bruto.
+3. ~~Detecção de conflito em `app/slate.py` só normaliza seleção pro
+   mercado 1x2~~ — resolvido em 2026-08-25: `chave_selecao` agora também
+   usa `normalizar_selecao_over_under` (direção+linha, parseada do texto
+   da própria seleção) e `normalizar_selecao_ambas_marcam`, ambos já
+   existentes em `app/odds_resolution.py` e usados na resolução de odds,
+   só não estavam plugados no agrupamento de conflito. `handicap`
+   continua comparando texto bruto por design — não existe normalizador
+   pra esse mercado em lugar nenhum do projeto (a resolução de odds pra
+   handicap também é só manual hoje), então não havia base pra construir
+   um aqui especulativamente.
 4. Parser de "cartões, condição por time" — só o marcador existe, falta
    texto real pra validar o parser completo.
 5. Alerta de 15% de picks não-liquidáveis por fonte — não existe canal de
