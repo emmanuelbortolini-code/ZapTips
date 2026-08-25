@@ -324,10 +324,17 @@ fase — detalhe completo em [`docs/HISTORICO.md`](docs/HISTORICO.md):
     betano, mesmas duas partidas) — mercado temporariamente suspenso,
     não indisponível por falha de parsing. O parser recusa corretamente
     (usar preço de mercado inativo violaria "piso publicado é sempre
-    apostável de verdade"). Não é bug, não precisa de correção. Hipótese
-    não testada: o mercado pode ativar mais perto do kickoff — revisitar
-    rodando `collect_odds.py` de novo poucas horas antes de uma partida
-    de Série B pra confirmar.
+    apostável de verdade"). Não é bug, não precisa de correção.
+    **Hipótese confirmada em 2026-08-25**: rodei
+    `parse_odds_by_tournaments_response` de verdade contra duas
+    fixtures reais de Série B (bra.2, tournamentId 390) faltando 6h45
+    pro kickoff — `marketActive: true` nas duas casas (bet365 e betano,
+    as mesmas do achado original), preços 1x2 extraídos com sucesso,
+    zero ignoradas. Confirma que o mercado ativa bem antes do kickoff
+    (pelo menos até 6h45 de antecedência) — a suspensão vista em
+    2026-08-20 foi um instantâneo pontual, não uma limitação estrutural
+    de Série B. Nada a mudar no pipeline: ele já roda 1x/dia e capta o
+    que estiver ativo no momento da coleta.
 
 Para o "porquê" de qualquer decisão acima, ou o relato completo de uma
 investigação (sondas, bugs de revisão de código, achados por fase), ver
