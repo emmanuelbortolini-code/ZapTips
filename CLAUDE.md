@@ -307,7 +307,16 @@ fase — detalhe completo em [`docs/HISTORICO.md`](docs/HISTORICO.md):
     resolve com alias manual quando um caso real específico for
     identificado, caso a caso, como no Novorizontino/Grêmio.
 13. Volume real ainda baixo pra validar conflito de picks/limite diário do
-    slate com dado de produção de verdade.
+    slate com dado de produção de verdade. Reconfirmado em 2026-08-25
+    contra o Postgres real: só 11 picks já chegaram a `status=
+    'vinculado'` na história do projeto, zero têm `status='descartado'`
+    (nunca existiu um perdedor de conflito de verdade), zero fixtures
+    têm mais de um pick vinculado no mesmo mercado (pré-condição pra
+    conflito sequer existir), e o maior `daily_slate` já montado teve 3
+    picks - nunca chegou perto do limite de 5 (`SLATE_MAX_PICKS`), então
+    o corte por `confianca_tipster` também nunca disparou de verdade.
+    Lógica só validada por teste sintético (`tests/test_slate.py`) até
+    aqui - nada a mudar em código, só esperar o volume real crescer.
 14. ~~`app/oddspapi.py::_parse_fixture` só reconhece mercado 1x2 sob uma
     chave fixa~~ — investigação de 2026-08-20 estava **errada**: a
     chave `"101"` estava presente nas duas fixtures de Série B
