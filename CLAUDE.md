@@ -225,7 +225,12 @@ fase — detalhe completo em [`docs/HISTORICO.md`](docs/HISTORICO.md):
    `uv run python -m scripts.health`.
 6. `casas.aliases` vazio (sem urgência — resolução de `casa_id` já é 100%
    sem alias; `app/espn_odds.py` contorna isso normalizando nome, não
-   dependendo de alias).
+   dependendo de alias). Reverificado em 2026-08-25 contra o Postgres
+   real: 1172/1182 picks (99,15%) têm `casa_id` resolvido; dos 10 sem
+   match, nenhum é caso de nome grafado diferente que um alias
+   resolveria — todos citam casa não-licenciada (`1XBET`) ou são picks
+   manuais sem casa citada. Não há dado real que justifique popular
+   aliases hoje.
 7. ~~Contagem de revisão manual não aparece em `/saude`~~ — resolvido em
    2026-08-20 (`revisao_manual_pendente`, painel no dashboard e no CLI
    `health`).
