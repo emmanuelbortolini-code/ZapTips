@@ -16,7 +16,7 @@ Uso:
 import sys
 
 from app.config import get_settings
-from app.console.queries import carregar_estado_run, encerradas_sem_liquidacao, historico_coleta, mensagens_expiradas, orfaos_aguardando_partida, quota_mes, revisao_manual_pendente
+from app.console.queries import carregar_estado_run, encerradas_sem_liquidacao, fontes_alerta_nao_liquidados, historico_coleta, mensagens_expiradas, orfaos_aguardando_partida, quota_mes, revisao_manual_pendente
 from app.console.rules import FONTES_COLETA, dias_fora_por_fonte, projetar_quota
 from app.db import get_connection
 from app.pipeline import data_operacional
@@ -43,6 +43,7 @@ def main() -> int:
             sem_liquidacao = encerradas_sem_liquidacao(cur)
             revisao_pendente = revisao_manual_pendente(cur)
             expiradas = mensagens_expiradas(cur)
+            alertas_fontes = fontes_alerta_nao_liquidados(cur, settings.nao_liquidavel_alerta_pct)
             vencendo = listar_vencendo(cur, hoje=hoje)
 
     print(f"ZapTips - saude ({hoje.isoformat()})")
@@ -70,6 +71,14 @@ def main() -> int:
     print(f"Fixtures encerradas sem liquidacao: {sem_liquidacao}")
     print(f"Picks pendentes de revisao manual: {revisao_pendente}")
     print(f"Mensagens expiradas: {expiradas}")
+    print()
+
+    if not alertas_fontes:
+        print(f"Nenhuma fonte acima de {settings.nao_liquidavel_alerta_pct:.0%} de nao-liquidados.")
+    else:
+        print(f"Fontes acima de {settings.nao_liquidavel_alerta_pct:.0%} de nao-liquidados:")
+        for alerta in alertas_fontes:
+            print(f"  {alerta.fonte}: {alerta.percentual:.0%} ({alerta.total_tentado} tentados)")
     print()
 
     if not vencendo:

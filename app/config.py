@@ -41,6 +41,10 @@ class Settings(BaseSettings):
     # calculada. Nao esta na lista de bloqueios de aprovacao da spec.
     divergencia_odd_alerta_pct: float = 0.10
 
+    # "Proximo passo" #8 do documento original: alerta quando o volume
+    # de nao_liquidavel passar de 15% dos palpites de uma fonte.
+    nao_liquidavel_alerta_pct: float = 0.15
+
     # Obrigatorio em toda mensagem enviada (Fase 4, "Template") - nunca
     # opcional. Rascunho, ajustavel sem tocar codigo (so o texto muda).
     rodape_legal: str = (

@@ -563,17 +563,35 @@ def contadores_do_dia(cur: psycopg.Cursor, agora: datetime) -> ContadoresEnvio:
     return ContadoresEnvio(prontas=prontas, enviadas_hoje=enviadas_hoje, expirando_2h=expirando_2h)
 
 
+def fontes_alerta_nao_liquidados(cur: psycopg.Cursor, limite_pct: float) -> list:
+    # Canal do alerta do "Proximo passo" #8 (documento original, linha
+    # 1215): sem janela de tempo de proposito - a spec pede o percentual
+    # da fonte, nao um recorte recente; recortar inventaria um
+    # comportamento que ninguem pediu. Reaproveita gerar_relatorio_por_
+    # fonte (mesma consulta que scripts/relatorio.py fontes ja usa) -
+    # nunca uma segunda implementacao da mesma pergunta.
+    from decimal import Decimal
+
+    from app.settlement.performance_fonte import alertas_nao_liquidados
+    from app.settlement.relatorio_fonte import gerar_relatorio_por_fonte
+
+    metricas = gerar_relatorio_por_fonte(cur)
+    return alertas_nao_liquidados(metricas, limite_pct=Decimal(str(limite_pct)))
+
+
 def carregar_dashboard_saude(cur: psycopg.Cursor, hoje: date, estado: "EstadoRun") -> dict:
     """Agregador de dados para a aba Saude e Controle.
 
     `estado` vem de fora (dependencia `estado_run_hoje`, ja resolvida pela
     rota) em vez de ser recalculado aqui - evita uma segunda consulta a
     `pipeline_runs`/`pipeline_stages` na mesma requisicao."""
+    from app.config import get_settings
     from app.console.rules import FONTES_COLETA, dias_fora_por_fonte, projetar_quota
     from app.subs import listar_vencendo
 
     historico = historico_coleta(cur, dias=14)
     chamadas, limite = quota_mes(cur, hoje.strftime("%Y-%m"))
+    settings = get_settings()
 
     return {
         "estado": estado,
@@ -583,6 +601,7 @@ def carregar_dashboard_saude(cur: psycopg.Cursor, hoje: date, estado: "EstadoRun
         "encerradas_sem_liquidacao": encerradas_sem_liquidacao(cur),
         "mensagens_expiradas": mensagens_expiradas(cur),
         "revisao_manual_pendente": revisao_manual_pendente(cur),
+        "fontes_alerta_nao_liquidados": fontes_alerta_nao_liquidados(cur, settings.nao_liquidavel_alerta_pct),
         "vencendo": listar_vencendo(cur, hoje=hoje),
     }
 

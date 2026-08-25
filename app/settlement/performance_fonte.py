@@ -105,6 +105,40 @@ def calcular_metricas_grupo(
 
 
 @dataclass(frozen=True)
+class AlertaNaoLiquidados:
+    fonte: str
+    percentual: Decimal
+    total_tentado: int
+
+
+def alertas_nao_liquidados(
+    metricas_por_fonte: Sequence[MetricasGrupo], *, limite_pct: Decimal, volume_minimo: int = 10
+) -> list[AlertaNaoLiquidados]:
+    # Spec original ("Proximo passo" #8, prompt-claude-code-palpites.md
+    # linha 1215): "Quando o volume [de nao_liquidavel revisado na mao]
+    # passar de 15% dos palpites de uma fonte, quero um alerta." Exige
+    # `metricas_por_fonte` agrupado so' por fonte (chave = (fonte,)),
+    # nao por (fonte, mercado) - o chamador decide isso escolhendo qual
+    # gerar_relatorio_por_* passar. `volume_minimo` evita alertar sobre
+    # uma fonte nova com 1 pick nao_liquidavel em 1 tentativa (100% mas
+    # sem significado nenhum) - mesma cautela de `sugerir_acoes` acima,
+    # so' que o limiar aqui e' bem menor porque o objetivo e' avisar cedo
+    # de problema de liquidacao, nao decidir desativar a fonte.
+    alertas = []
+    for m in metricas_por_fonte:
+        if m.percentual_nao_liquidados is None:
+            continue
+        total_tentado = m.volume_liquidado + m.volume_nao_liquidado
+        if total_tentado < volume_minimo:
+            continue
+        if m.percentual_nao_liquidados > limite_pct:
+            alertas.append(
+                AlertaNaoLiquidados(fonte=m.chave[0], percentual=m.percentual_nao_liquidados, total_tentado=total_tentado)
+            )
+    return alertas
+
+
+@dataclass(frozen=True)
 class SugestaoFonte:
     chave: tuple[str, ...]
     tipo: str  # "desativacao" | "promocao"

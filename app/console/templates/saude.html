@@ -75,6 +75,20 @@
     {% endfor %}
   </ul>
 
+  <h2>Alerta de não-liquidados por fonte</h2>
+  {% if not fontes_alerta_nao_liquidados %}
+    <p>Nenhuma fonte acima do limite.</p>
+  {% else %}
+    <ul class="lista-simples">
+      {% for alerta in fontes_alerta_nao_liquidados %}
+        <li>
+          <span>{{ alerta.fonte }}</span>
+          <span class="badge badge-falhou">{{ "%.0f"|format(alerta.percentual * 100) }}% não-liquidados ({{ alerta.total_tentado }} tentados)</span>
+        </li>
+      {% endfor %}
+    </ul>
+  {% endif %}
+
   <h2>Cota OddsPapi (mês atual)</h2>
   <p class="odd">
     {{ quota.chamadas }}{% if quota.limite %} / {{ quota.limite }} &nbsp;<small>({{ quota.restante }} restante(s), projeção fim do mês: {{ quota.projecao_fim_mes }})</small>{% else %} &nbsp;<small>(sem limite configurado)</small>{% endif %}

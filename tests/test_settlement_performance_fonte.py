@@ -3,6 +3,7 @@ from decimal import Decimal
 from app.settlement.performance_fonte import (
     MetricasGrupo,
     PickComOdd,
+    alertas_nao_liquidados,
     calcular_metricas_grupo,
     sugerir_acoes,
 )
@@ -135,3 +136,45 @@ def test_sem_sugestao_fonte_quarentena_com_roi_negativo():
     metricas = [_metricas(("fonte-b",), roi=-0.1, volume=50)]
     sugestoes = sugerir_acoes(metricas, quarentena_por_fonte={"fonte-b": True})
     assert sugestoes == []
+
+
+# --- alertas_nao_liquidados -------------------------------------------------------
+
+
+def _metricas_nao_liquidados(chave, volume_liquidado, volume_nao_liquidado) -> MetricasGrupo:
+    total = volume_liquidado + volume_nao_liquidado
+    percentual = Decimal(volume_nao_liquidado) / total if total else None
+    return MetricasGrupo(
+        chave=chave, volume_liquidado=volume_liquidado, volume_nao_liquidado=volume_nao_liquidado,
+        volume_sem_odd=0, percentual_nao_liquidados=percentual, roi=None, taxa_acerto=None,
+        odd_media=None, diferenca_media_odd=None,
+    )
+
+
+def test_alerta_fonte_acima_do_limite_com_volume_suficiente():
+    # 4 de 20 = 20%, acima do limite de 15%.
+    metricas = [_metricas_nao_liquidados(("fonte-a",), volume_liquidado=16, volume_nao_liquidado=4)]
+    alertas = alertas_nao_liquidados(metricas, limite_pct=Decimal("0.15"))
+    assert len(alertas) == 1
+    assert alertas[0].fonte == "fonte-a"
+    assert alertas[0].total_tentado == 20
+
+
+def test_sem_alerta_fonte_abaixo_do_limite():
+    # 2 de 20 = 10%, abaixo do limite de 15%.
+    metricas = [_metricas_nao_liquidados(("fonte-a",), volume_liquidado=18, volume_nao_liquidado=2)]
+    alertas = alertas_nao_liquidados(metricas, limite_pct=Decimal("0.15"))
+    assert alertas == []
+
+
+def test_sem_alerta_volume_abaixo_do_minimo():
+    # 1 de 1 = 100%, mas amostra pequena demais pra confiar no percentual.
+    metricas = [_metricas_nao_liquidados(("fonte-a",), volume_liquidado=0, volume_nao_liquidado=1)]
+    alertas = alertas_nao_liquidados(metricas, limite_pct=Decimal("0.15"), volume_minimo=10)
+    assert alertas == []
+
+
+def test_sem_alerta_percentual_none():
+    metricas = [_metricas_nao_liquidados(("fonte-a",), volume_liquidado=0, volume_nao_liquidado=0)]
+    alertas = alertas_nao_liquidados(metricas, limite_pct=Decimal("0.15"))
+    assert alertas == []

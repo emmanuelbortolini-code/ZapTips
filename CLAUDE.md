@@ -79,6 +79,7 @@ Ver `.env.example` para a lista completa comentada. Parâmetros de negócio:
 | `STAKE_MODO_PADRAO` | `fixo` | Isola qualidade do palpite do dimensionamento (ROI comparável por fonte) |
 | `MAX_ASSINANTES_ATIVOS` | `50` | Trava de código |
 | `DIVERGENCIA_ODD_ALERTA_PCT` | `0.10` | Alerta visual (nunca bloqueio) na curadoria |
+| `NAO_LIQUIDAVEL_ALERTA_PCT` | `0.15` | Alerta em `/saude`/`scripts/health.py` quando uma fonte passa desse % de não-liquidados |
 
 `DATABASE_URL` aponta pro Supabase real; senha com caracteres especiais
 precisa de URL-encoding. `.env` não é versionado.
@@ -209,8 +210,19 @@ fase — detalhe completo em [`docs/HISTORICO.md`](docs/HISTORICO.md):
    `total` (over/under), não condição-por-time — segue sem exemplo real
    pra validar contra. Continua bloqueada até a fonte APWin (única citada
    com esse mercado) existir, ou aparecer texto real em outra fonte.
-5. Alerta de 15% de picks não-liquidáveis por fonte — não existe canal de
-   alerta no projeto ainda.
+5. ~~Alerta de 15% de picks não-liquidáveis por fonte~~ — resolvido em
+   2026-08-25: `app.settlement.performance_fonte.alertas_nao_liquidados`
+   (função pura, mesma cautela de `sugerir_acoes` — `volume_minimo=10`
+   evita alertar sobre uma fonte nova com amostra pequena) mais
+   `app.console.queries.fontes_alerta_nao_liquidados` (reaproveita
+   `gerar_relatorio_por_fonte`, mesma consulta de `scripts/relatorio.py
+   fontes`). Canal escolhido: mesmo painel de `/saude` e
+   `scripts/health.py` já usado pra `revisao_manual_pendente` — o
+   projeto não tem (nem precisa de) canal externo (e-mail/Slack), é
+   ferramenta de operador solo. Limiar configurável via
+   `NAO_LIQUIDAVEL_ALERTA_PCT` (default `0.15`, mesmo padrão de
+   `DIVERGENCIA_ODD_ALERTA_PCT`). Validado contra o Postgres real via
+   `uv run python -m scripts.health`.
 6. `casas.aliases` vazio (sem urgência — resolução de `casa_id` já é 100%
    sem alias; `app/espn_odds.py` contorna isso normalizando nome, não
    dependendo de alias).

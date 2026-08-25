@@ -6,6 +6,7 @@ from app.console.queries import (
     HistoricoColeta,
     carregar_estado_run,
     encerradas_sem_liquidacao,
+    fontes_alerta_nao_liquidados,
     historico_coleta,
     mensagens_expiradas,
     orfaos_aguardando_partida,
@@ -129,3 +130,37 @@ def test_revisao_manual_pendente_filtra_nao_liquidavel_nao_revisado():
     assert revisao_manual_pendente(cur) == 4
     sql = cur.queries[0][0]
     assert "'nao_liquidavel'" in sql and "revisado_por_humano = false" in sql
+
+
+def test_fontes_alerta_nao_liquidados_acima_do_limite():
+    from decimal import Decimal
+
+    picks_liquidados = [
+        ("p%d" % i, "Fonte X", "Tipster A", "1x2", "green", Decimal("1.8"), None, None) for i in range(16)
+    ]
+    picks_nao_liquidados = [
+        ("p%d" % i, "Fonte X", "Tipster A", "1x2", "nao_liquidavel", Decimal("1.8"), None, None)
+        for i in range(16, 20)
+    ]
+    cur = FakeCursor(fetchall_results=[picks_liquidados + picks_nao_liquidados, []])
+
+    alertas = fontes_alerta_nao_liquidados(cur, limite_pct=0.15)
+
+    assert len(alertas) == 1
+    assert alertas[0].fonte == "Fonte X"
+    assert alertas[0].total_tentado == 20
+
+
+def test_fontes_alerta_nao_liquidados_vazio_abaixo_do_limite():
+    from decimal import Decimal
+
+    picks_liquidados = [
+        ("p%d" % i, "Fonte X", "Tipster A", "1x2", "green", Decimal("1.8"), None, None) for i in range(18)
+    ]
+    picks_nao_liquidados = [
+        ("p%d" % i, "Fonte X", "Tipster A", "1x2", "nao_liquidavel", Decimal("1.8"), None, None)
+        for i in range(18, 20)
+    ]
+    cur = FakeCursor(fetchall_results=[picks_liquidados + picks_nao_liquidados, []])
+
+    assert fontes_alerta_nao_liquidados(cur, limite_pct=0.15) == []
