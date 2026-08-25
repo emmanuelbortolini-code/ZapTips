@@ -109,6 +109,26 @@ não é mais o caminho de produção.
   custo extra de cota) → 3) bloco nativo da ESPN (`app/espn_odds.py`,
   só mercado 1x2, odds americanas convertidas pra decimal — casa licenciada
   raramente aparece no bloco hoje, ver Estado do projeto) → 4) manual via console.
+- `league_map` (torneios com `oddspapi_tournament_id` confirmado, nível 2
+  da hierarquia) expandido em 2026-08-25 de 2 pra 5 ligas: Brasileirão
+  A/B (já existiam) + Premier League (`eng.1`, tournamentId `17`), LaLiga
+  (`esp.1`, `8`) e Serie A Italiana (`ita.1`, `23`) — `migrations/
+  0029_league_map_eng_esp_ita.sql`, IDs confirmados via `GET /tournaments`
+  real, casando por `tournamentSlug`+`categorySlug` exato (evita colisão,
+  ex. "Serie A" existe em vários países). **Achado real desta sessão**:
+  `GET /odds-by-tournaments` recusa mais de 5 `tournamentIds` numa
+  chamada só (`400 INVALID_PARAMETER`, não documentado em lugar nenhum) —
+  por isso o escopo parou em exatamente 5 ligas (cabe na chamada única
+  por casa que `scripts/collect_odds.py` já faz hoje, zero aumento de
+  cota). As 6 ligas restantes do `LIGAS` da ESPN (`ger.1`, `fra.1`,
+  `bra.copa_do_brazil`, `uefa.champions`, `conmebol.libertadores`,
+  `conmebol.sudamericana`) já têm `tournamentId` confirmado com
+  `futureFixtures > 0` real (levantado nesta sessão, não gravado em
+  `league_map` ainda) — adicioná-las exigiria lotear `tournamentIds` em
+  grupos de ≤5 (`scripts/collect_odds.py` faria N chamadas por casa em
+  vez de 1), o que precisa de redesenho pra não estourar os 250/mês.
+  Validado contra o Postgres real: `gravadas` em `odds_referencia` saltou
+  de 53 para 1169 numa única execução após a expansão.
 - **Não haverá créditos de API da Anthropic** (decisão permanente,
   2026-08-13, restrição de orçamento). `scripts/extract_picks.py` continua
   correto mas não roda contra a API real — a etapa `extracao` do pipeline
