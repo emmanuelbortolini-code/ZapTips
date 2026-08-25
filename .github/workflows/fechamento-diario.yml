@@ -9,9 +9,16 @@ on:
     - cron: "0 2 * * *"
   workflow_dispatch: {}
 
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
 jobs:
   rodar:
     runs-on: ubuntu-latest
+    outputs:
+      pagina_gerada: ${{ steps.pagina.outputs.gerada }}
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v3
@@ -28,9 +35,31 @@ jobs:
       - run: uv run python -m scripts.gerar_pagina_publica
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      - id: pagina
+        run: |
+          if [ -f public/index.html ]; then
+            echo "gerada=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "gerada=false" >> "$GITHUB_OUTPUT"
+          fi
       - uses: actions/upload-artifact@v4
         with:
           name: pagina-publica
           path: public/
           retention-days: 7
           if-no-files-found: ignore
+      - uses: actions/upload-pages-artifact@v3
+        if: steps.pagina.outputs.gerada == 'true'
+        with:
+          path: public/
+
+  publicar:
+    needs: rodar
+    if: needs.rodar.outputs.pagina_gerada == 'true'
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
