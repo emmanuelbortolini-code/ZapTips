@@ -174,8 +174,14 @@ fase — detalhe completo em [`docs/HISTORICO.md`](docs/HISTORICO.md):
 
 ## Pendências conhecidas
 
-1. Publicar/hospedar `public/index.html` (Netlify Drop, GitHub Pages etc.)
-   continua manual — o script só gera o artefato local, nunca sobe sozinho.
+1. ~~Publicar/hospedar `public/index.html` continua manual~~ — resolvido em
+   2026-08-25: repo tornado público (era privado, GitHub Pages grátis exige
+   isso) e `.github/workflows/fechamento-diario.yml` ganhou um job
+   `publicar` (`actions/upload-pages-artifact` + `actions/deploy-pages`)
+   que sobe `public/index.html` pro GitHub Pages sempre que o arquivo é
+   gerado. Validado com execução manual real: todos os passos verdes,
+   página no ar em `https://emmanuelbortolini-code.github.io/ZapTips/`
+   com conteúdo real (não é mais só o artefato local).
 2. ~~`pg_dump` não instalado~~ — resolvido em 2026-08-20: PostgreSQL 17
    client tools instalado via `winget` (`PostgreSQL.PostgreSQL.17`), bin
    adicionado ao PATH do usuário. O instalador do winget sobe o serviço
