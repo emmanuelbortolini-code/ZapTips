@@ -289,11 +289,23 @@ fase — detalhe completo em [`docs/HISTORICO.md`](docs/HISTORICO.md):
     continuam corretamente ambíguos (América-MG/RN, não regrediu).
     `migrations/0028` adiciona o alias que faltava.
 12. Família "América-MG/América-RN" (dois times distintos que colidem
-    depois de normalizar) continua sem resolução automática, por
-    design — inclui agora um caso real confirmado: "Novorizontino x
-    América Mineiro" não resolve odd porque "América Mineiro" cai
-    nessa mesma família. Só resolve com alias manual específico, caso a
-    caso, como fiz pro Novorizontino/Grêmio.
+    depois de normalizar pra "america") continua sem resolução
+    automática, por design (nunca escolhe entre dois aliases exatos
+    empatados, mesma regra do caso Novorizontino/Grêmio). Reinvestigado
+    em 2026-08-25: o exemplo antes citado aqui ("Novorizontino x América
+    Mineiro" não resolvia odd por causa da família) **não reproduziu**
+    contra o banco real - esse pick usa a forma curta "América-MG",
+    vinculou normalmente (a desambiguação por janela de kickoff já
+    funciona: só América-MG tinha fixture candidata na janela) e ficou
+    `sem_odd` por falta de cobertura da OddsPapi pra Série B, sem
+    relação nenhuma com a família. A forma completa "América Mineiro"
+    (sem hífen) já resolve sem ambiguidade hoje (alias próprio distinto
+    de "america"). A ambiguidade real só afeta a forma curta isolada -
+    impacto medido hoje: 8 picks presos em `revisao_manual` por essa
+    causa especificamente. Continua sem fix de código seguro (resolver
+    genericamente arriscaria confundir os dois times de verdade); só
+    resolve com alias manual quando um caso real específico for
+    identificado, caso a caso, como no Novorizontino/Grêmio.
 13. Volume real ainda baixo pra validar conflito de picks/limite diário do
     slate com dado de produção de verdade.
 14. ~~`app/oddspapi.py::_parse_fixture` só reconhece mercado 1x2 sob uma
