@@ -26,6 +26,7 @@ from typing import Mapping
 import structlog
 
 import scripts.build_slate as build_slate
+import scripts.collect_apwin as collect_apwin
 import scripts.collect_eagle_predict as collect_eagle_predict
 import scripts.collect_fixtures as collect_fixtures
 import scripts.collect_odds as collect_odds
@@ -53,6 +54,7 @@ def _adaptador_coleta(resultados: Mapping[str, ResultadoEtapa]) -> ResultadoEtap
     sub = {
         "eagle_predict": _rodar_subetapa("eagle_predict", collect_eagle_predict.executar),
         "sda": _rodar_subetapa("sda", collect_sda.executar),
+        "apwin": _rodar_subetapa("apwin", collect_apwin.executar),
     }
     return consolidar_subetapas(sub)
 

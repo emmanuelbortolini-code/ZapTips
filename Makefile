@@ -38,6 +38,9 @@ collect-eagle-predict:
 collect-sda:
 	uv run python -m scripts.collect_sda
 
+collect-apwin:
+	uv run python -m scripts.collect_apwin
+
 extract-picks:
 	uv run python -m scripts.extract_picks
 

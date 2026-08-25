@@ -17,7 +17,7 @@ from app.settlement.performance_fonte import MetricasGrupo
 # scripts/run_pipeline.py::_adaptador_coleta (chave do dict `sub`) - nao
 # e o nome de exibicao da fonte (ver sources.nome, "Eagle Predict"/"Sites
 # de Apostas"), e a chave que aparece em detalhe_json.subetapas.
-FONTES_COLETA: tuple[str, ...] = ("eagle_predict", "sda")
+FONTES_COLETA: tuple[str, ...] = ("eagle_predict", "sda", "apwin")
 
 
 def formatar_roi(roi: Decimal | None) -> str:

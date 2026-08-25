@@ -46,7 +46,7 @@ com MSYS2/coreutils ou WSL têm).
 | Instalar dependências | `uv sync --dev` |
 | Aplicar migrations pendentes | `uv run python -m scripts.migrate` |
 | Rodar testes | `uv run pytest` |
-| Sondas/coleta (ESPN, OddsPapi, fixtures, resultados, odds, Eagle Predict, SDA) | `uv run python -m scripts.sonda_espn` / `sonda_oddspapi` / `collect_fixtures` / `collect_results` / `collect_odds` / `collect_eagle_predict` / `collect_sda` (`--backfill` p/ SDA, uma vez só) |
+| Sondas/coleta (ESPN, OddsPapi, fixtures, resultados, odds, Eagle Predict, SDA, APWin) | `uv run python -m scripts.sonda_espn` / `sonda_oddspapi` / `collect_fixtures` / `collect_results` / `collect_odds` / `collect_eagle_predict` / `collect_sda` (`--backfill` p/ SDA, uma vez só) / `collect_apwin` |
 | Seed de team_aliases | `uv run python -m scripts.seed_team_aliases` |
 | Extração/matching/odds/slate | `uv run python -m scripts.extract_picks` / `link_picks` / `resolve_odds` / `build_slate` |
 | Pipeline diário completo (com resume) | `uv run python -m scripts.run_pipeline` (`--forcar-etapa <nome>` p/ forçar) |
@@ -142,6 +142,35 @@ fase — detalhe completo em [`docs/HISTORICO.md`](docs/HISTORICO.md):
   resultados/odds. 42 fixtures e 84 odds de referência coletadas.
 - **Fase 2** — Coletores Eagle Predict e SDA (Telegram/WordPress scraping),
   ambos em quarentena por padrão. ~770 `raw_picks` coletados no backfill.
+  **APWin Decreasing Stats** (Fonte 4 do documento original) construída
+  em 2026-08-25 (`app/apwin.py` + `scripts/collect_apwin.py`) — mercado
+  vem da URL da página, não do texto, então pula
+  `scripts/extract_picks.py` de propósito: grava `raw_picks` e `picks`
+  estruturado na mesma transação, marcando `extraido_em` na hora.
+  Primeira fonte a popular `picks.stat_fonte`/`stat_fonte_tipo`
+  (`'frequencia_ultimos_jogos'`) — nunca `confianca_tipster`, que é só
+  pra confiança declarada. Escopo desta entrega: só as 4 páginas cujo
+  mercado já é totalmente suportado por `app/settlement/engine.py`
+  (`ambas_marcam`, `over_under` 2.5 gols, `escanteios` 9.5,
+  `cartoes` 4.5 — jogo inteiro, nunca "por time"/1º tempo), e só
+  Brasileirão A/B (`bra.1`/`bra.2`, as únicas ligas com
+  `league_map.oddspapi_tournament_id` mapeado hoje) — decisão do PM
+  pra nunca coletar palpite sem chance real de odd/liquidação. Resolve
+  fixture/time no próprio coletor (não passa por `link_picks.py`),
+  descartando a entrada (nunca `revisao_manual`) quando o time ou a
+  fixture não resolvem com confiança. Validado contra o site e o
+  Postgres reais: fonte criada com `quarentena=true`, 4 picks reais
+  vinculados a fixtures de Série B, confirmado que nenhum passa no
+  filtro `s.quarentena is not true` (curadoria/slate). Ficam de fora,
+  documentado como próximo passo: páginas "por time"
+  (`team-over-25-cards`, `team-scored-in-both-halves`,
+  `team-over-goals`) e `over-ht-goals` (mercado de 1º tempo, não existe
+  em `MERCADOS_VALIDOS`) — as páginas "por time" são a mesma categoria
+  da pendência 4 do histórico ("cartões condição por time") e dariam o
+  primeiro dado real estruturado desse tipo, mas não foram construídas
+  nesta entrega. Grupo de comparação abaixo de 100% (pro relatório de
+  decisão de 60 dias da quarentena) também fica de fora — a página não
+  tem parâmetro de URL simples pra isso.
 - **Fase 3** — Extração estruturada de picks (schema + prompt validados
   20/20 numa amostra manual; ~1076 picks extraídos ao todo até agora). Ver
   decisão sobre créditos de API acima.

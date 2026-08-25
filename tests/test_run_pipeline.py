@@ -1,3 +1,4 @@
+import scripts.collect_apwin as collect_apwin
 import scripts.collect_eagle_predict as collect_eagle_predict
 import scripts.collect_odds as collect_odds
 import scripts.collect_sda as collect_sda
@@ -38,18 +39,20 @@ def test_rodar_subetapa_captura_excecao_e_degrada():
     assert resultado.detalhe["excecao"] == "RuntimeError"
 
 
-def test_adaptador_coleta_consolida_eagle_e_sda(monkeypatch):
+def test_adaptador_coleta_consolida_eagle_sda_e_apwin(monkeypatch):
     monkeypatch.setattr(collect_eagle_predict, "executar", lambda: ResultadoEtapa(status="ok", itens_ok=9))
     monkeypatch.setattr(collect_sda, "executar", lambda: ResultadoEtapa(status="ok", itens_ok=3))
+    monkeypatch.setattr(collect_apwin, "executar", lambda: ResultadoEtapa(status="ok", itens_ok=1))
 
     resultado = _adaptador_coleta({})
 
     assert resultado.status == "ok"
-    assert resultado.itens_ok == 12
+    assert resultado.itens_ok == 13
 
 
 def test_adaptador_coleta_degrada_quando_uma_fonte_falha(monkeypatch):
     monkeypatch.setattr(collect_eagle_predict, "executar", lambda: ResultadoEtapa(status="ok", itens_ok=9))
+    monkeypatch.setattr(collect_apwin, "executar", lambda: ResultadoEtapa(status="ok", itens_ok=1))
 
     def sda_explode():
         raise RuntimeError("falha")
@@ -61,6 +64,7 @@ def test_adaptador_coleta_degrada_quando_uma_fonte_falha(monkeypatch):
     assert resultado.status == "degradado"
     assert resultado.detalhe["subetapas"]["sda"]["status"] == "degradado"
     assert resultado.detalhe["subetapas"]["eagle_predict"]["status"] == "ok"
+    assert resultado.detalhe["subetapas"]["apwin"]["status"] == "ok"
 
 
 def test_adaptador_odds_consolida_collect_e_resolve(monkeypatch):
