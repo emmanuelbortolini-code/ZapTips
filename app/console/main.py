@@ -28,11 +28,13 @@ def create_app() -> FastAPI:
 
     from app.console.rotas_curadoria import router as router_curadoria  # noqa: PLC0415
     from app.console.rotas_envio import router as router_envio  # noqa: PLC0415
+    from app.console.rotas_relatorios import router as router_relatorios  # noqa: PLC0415
     from app.console.rotas_saude import router as router_saude  # noqa: PLC0415
 
     app.include_router(router_saude)
     app.include_router(router_curadoria)
     app.include_router(router_envio)
+    app.include_router(router_relatorios)
 
     @app.get("/")
     def raiz() -> RedirectResponse:

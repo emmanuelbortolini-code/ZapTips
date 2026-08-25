@@ -234,8 +234,17 @@ fase — detalhe completo em [`docs/HISTORICO.md`](docs/HISTORICO.md):
 7. ~~Contagem de revisão manual não aparece em `/saude`~~ — resolvido em
    2026-08-20 (`revisao_manual_pendente`, painel no dashboard e no CLI
    `health`).
-8. `scripts/relatorio.py` (usuário/fontes) só tem CLI — nenhuma rota do
-   console mostra essas métricas ainda.
+8. ~~`scripts/relatorio.py` (usuário/fontes) só tem CLI~~ — parcialmente
+   resolvido em 2026-08-25: nova aba **Relatórios** no console
+   (`app/console/rotas_relatorios.py` + `templates/relatorios.html`)
+   mostra performance por fonte dos últimos 30 dias, reaproveitando
+   `carregar_relatorio_fontes_30d` (que já existia em `queries.py`, mas
+   nunca era chamado — código morto até agora). Validado contra o
+   Postgres real (`uv run python -m scripts.console`, dado de produção
+   apareceu certo, ROI sempre junto da taxa de acerto). Detalhe por
+   mercado/tipster, sugestões de desativação/promoção e o relatório por
+   **usuário** (exige `--user-id`, sem seletor de assinante na UI) ficam
+   de fora por decisão desta sessão — continuam só CLI.
 9. Uso auxiliar do `/settlements` do OddsPapi (conferência amostral de
    liquidação) — não implementado.
 10. ~~Agendador nunca rodou um dia inteiro em produção~~ — resolvido em
